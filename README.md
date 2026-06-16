@@ -1,6 +1,24 @@
 # Cheater Case Intelligence Platform (CCIP)
 
-CCIP is a triage and evidence‑analysis platform for player‑reported cheating in online games.
+CCIP is designed to help studios manage the operational burden of reviewing cheating reports.  
+Instead of building anti‑cheat detection, CCIP focuses on **case intelligence**:
+
+- structured report ingestion  
+- evidence analysis  
+- cross‑report correlation  
+- confidence scoring  
+- reviewer workflows  
+
+The initial target use case is **Tom Clancy’s The Division 2**, but the platform is intentionally game‑agnostic and reusable for future titles (including Division 3).
+
+## Core Goals
+
+- Reduce manual review time for player‑submitted cheating reports  
+- Improve consistency and accuracy of case decisions  
+- Provide AI‑assisted evidence summaries and metadata extraction  
+- Correlate multiple reports about the same player or incident  
+- Deliver a clean reviewer dashboard for triage and audit history  
+- Remain game‑agnostic and reusable across titles  
 
 ## Project Structure
 
@@ -27,6 +45,16 @@ CCIP is a triage and evidence‑analysis platform for player‑reported cheating
 - [ ] Add authentication (JWT / OAuth) across backend + frontend
 - [ ] Add end-to-end tests
 
+## Roadmap
+
+- Report ingestion API  
+- Evidence processing queue  
+- AI summarization service  
+- Case correlation engine  
+- Reviewer dashboard (MUI)  
+- Exportable case packets for studio review  
+- Pilot demo for The Division 2  
+
 ## Getting Started
 
 ### Backend
@@ -47,3 +75,10 @@ npm install
 npm run dev
 ```
 
+## Contributing
+
+This project is in early development. Contributions, ideas, and discussions are welcome as the platform evolves.
+
+## License
+
+MIT — free for personal and commercial use.
