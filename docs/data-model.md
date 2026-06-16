@@ -1,7 +1,7 @@
 # CCIP Data Model
 
 > **Cheater Case Intelligence Platform** — Data Architecture Reference  
-> Last updated: 2026-06-16 | Version 1.0.0
+> Last updated: 2026-06-16 | Version 2.0.0
 
 ---
 
@@ -11,25 +11,60 @@
 2. [Entity-Relationship Diagram](#2-entity-relationship-diagram)
 3. [Prisma Schema](#3-prisma-schema)
 4. [Entity Reference](#4-entity-reference)
+   - [Game](#41-game)
+   - [Platform](#42-platform)
+   - [ViolationType](#43-violationtype)
+   - [SanctionTemplate](#44-sanctiontemplate)
+   - [IntegrationSource](#45-integrationsource)
+   - [User](#46-user)
+   - [Case](#47-case)
+   - [Subject](#48-subject)
+   - [Report](#49-report)
+   - [Evidence](#410-evidence)
+   - [Attachment](#411-attachment)
+   - [Note](#412-note)
+   - [Verdict](#413-verdict)
+   - [AuditLog](#414-auditlog)
 5. [Relationships Summary](#5-relationships-summary)
 6. [Enum Reference](#6-enum-reference)
-7. [Design Decisions & Conventions](#7-design-decisions--conventions)
+7. [Seed File](#7-seed-file)
+8. [Design Decisions & Conventions](#8-design-decisions--conventions)
 
 ---
 
 ## 1. Overview
 
-The Cheater Case Intelligence Platform (CCIP) is a case-management and intelligence system for tracking, investigating, and adjudicating cheating allegations. The data model is designed around the lifecycle of a **Case**: it is opened when a **Report** is received, investigated using **Evidence** and **Notes**, and closed with a **Verdict**. All actions are captured in an immutable **AuditLog**.
+The Cheater Case Intelligence Platform (CCIP) is a case-management and intelligence system for tracking, investigating, and adjudicating cheating allegations. It is designed to be **game-agnostic and studio-ready**: every list of options (cheat types, platforms, penalties, ingest sources) lives in the database as configurable records rather than hardcoded enum values. A new studio installs the repo, edits the seed file for their title, runs `prisma db seed`, and the platform is fully configured — no schema changes required.
+
+### Architecture at a Glance
+
+```
+Game  ←── the top-level tenant (one per title, or shared across a studio's portfolio)
+ │
+ ├── Platform[]           Steam, Xbox Live, PSN, Epic — seeded per studio
+ ├── ViolationType[]      Aimbot, Wallhack, Boosting — seeded per game
+ ├── SanctionTemplate[]   7-day ban, perm ban, warning — seeded per game
+ ├── IntegrationSource[]  EAC, VAC, custom ML pipeline — plugged in per game
+ └── Case[]
+      ├── Subject[]        → Platform
+      ├── Report[]         → IntegrationSource
+      ├── ViolationType[]  (via CaseViolationType)
+      ├── Evidence[]
+      ├── Note[]
+      └── Verdict          → SanctionTemplate
+```
 
 ### Core Principles
 
 | Principle | Implementation |
 |---|---|
-| Case-centric | Every entity relates back to a `Case` |
+| Game-agnostic | All game-specific lists are config tables, not enums |
+| Case-centric | Every investigative entity relates back to a `Case` |
 | Immutable audit trail | `AuditLog` is append-only; no updates or deletes |
-| Soft deletes | All primary entities use `deletedAt` rather than hard deletes |
+| Soft deletes | Primary entities use `deletedAt` rather than hard deletes |
 | Role-based access | `User.role` gates read/write/admin operations |
-| Extensibility | `metadata` JSONB fields on key models for future attributes |
+| Extensibility | `metadata` JSONB fields on key models for custom attributes |
+| Customization via seed | Studios configure their title in `prisma/seed.ts`, not in schema |
 
 ---
 
@@ -37,6 +72,66 @@ The Cheater Case Intelligence Platform (CCIP) is a case-management and intellige
 
 ```mermaid
 erDiagram
+    GAME {
+        string id PK
+        string name
+        string slug UK
+        string logoUrl
+        json metadata
+        boolean isActive
+        datetime createdAt
+    }
+
+    PLATFORM {
+        string id PK
+        string gameId FK
+        string name
+        string slug UK
+        string profileUrlTemplate
+        boolean isActive
+        datetime createdAt
+    }
+
+    VIOLATION_TYPE {
+        string id PK
+        string gameId FK
+        string name
+        string slug
+        string description
+        string severity
+        string color
+        boolean isActive
+        datetime createdAt
+    }
+
+    CASE_VIOLATION_TYPE {
+        string caseId FK
+        string violationTypeId FK
+    }
+
+    SANCTION_TEMPLATE {
+        string id PK
+        string gameId FK
+        string name
+        string slug
+        string description
+        int durationDays
+        boolean isAppealable
+        boolean isActive
+        datetime createdAt
+    }
+
+    INTEGRATION_SOURCE {
+        string id PK
+        string gameId FK
+        string name
+        string slug
+        string webhookUrl
+        string apiKeyHash
+        boolean isActive
+        datetime createdAt
+    }
+
     USER {
         string id PK
         string email
@@ -51,6 +146,7 @@ erDiagram
 
     CASE {
         string id PK
+        string gameId FK
         string caseNumber UK
         string title
         string description
@@ -69,9 +165,9 @@ erDiagram
     SUBJECT {
         string id PK
         string caseId FK
+        string platformId FK
         string displayName
         string externalId
-        string platform
         string profileUrl
         json metadata
         datetime createdAt
@@ -82,9 +178,9 @@ erDiagram
         string id PK
         string caseId FK
         string reportedById FK
+        string integrationSourceId FK
         string summary
         string detail
-        string source
         datetime incidentAt
         datetime createdAt
         datetime updatedAt
@@ -132,26 +228,13 @@ erDiagram
     VERDICT {
         string id PK
         string caseId UK
+        string sanctionTemplateId FK
         string renderedById FK
-        string outcome
         string rationale
         datetime effectiveAt
         datetime expiresAt
         datetime createdAt
         datetime updatedAt
-    }
-
-    TAG {
-        string id PK
-        string name UK
-        string color
-        string description
-        datetime createdAt
-    }
-
-    CASE_TAG {
-        string caseId FK
-        string tagId FK
     }
 
     AUDIT_LOG {
@@ -168,6 +251,21 @@ erDiagram
         datetime createdAt
     }
 
+    GAME ||--o{ PLATFORM : "defines"
+    GAME ||--o{ VIOLATION_TYPE : "defines"
+    GAME ||--o{ SANCTION_TEMPLATE : "defines"
+    GAME ||--o{ INTEGRATION_SOURCE : "defines"
+    GAME ||--o{ CASE : "scopes"
+
+    PLATFORM ||--o{ SUBJECT : "identifies"
+
+    VIOLATION_TYPE ||--o{ CASE_VIOLATION_TYPE : "applied via"
+    CASE ||--o{ CASE_VIOLATION_TYPE : "tagged with"
+
+    INTEGRATION_SOURCE ||--o{ REPORT : "sources"
+
+    SANCTION_TEMPLATE ||--o{ VERDICT : "applied by"
+
     USER ||--o{ CASE : "opens"
     USER ||--o{ CASE : "assigned to"
     USER ||--o{ REPORT : "files"
@@ -176,18 +274,15 @@ erDiagram
     USER ||--o{ VERDICT : "renders"
     USER ||--o{ AUDIT_LOG : "generates"
 
-    CASE ||--o{ SUBJECT : "has"
+    CASE ||--o{ SUBJECT : "involves"
     CASE ||--o{ REPORT : "receives"
     CASE ||--o{ EVIDENCE : "collects"
     CASE ||--o{ NOTE : "contains"
     CASE ||--o| VERDICT : "closes with"
-    CASE ||--o{ CASE_TAG : "tagged by"
     CASE ||--o{ AUDIT_LOG : "logged in"
 
     EVIDENCE ||--o{ ATTACHMENT : "has"
     NOTE ||--o{ ATTACHMENT : "has"
-
-    TAG ||--o{ CASE_TAG : "used in"
 ```
 
 ---
@@ -195,6 +290,12 @@ erDiagram
 ## 3. Prisma Schema
 
 ```prisma
+// ============================================================
+// CCIP — Prisma Schema
+// Database: PostgreSQL 15+
+// Version:  2.0.0 — extensible, game-agnostic
+// ============================================================
+
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["fullTextSearch", "fullTextIndex"]
@@ -205,18 +306,191 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ─── ENUMS ───────────────────────────────────────────────
+// ─────────────────────────────────────────
+// STABLE ENUMS
+// These are universal workflow states that
+// do not vary by game. All game-specific
+// "lists of options" are config tables below.
+// ─────────────────────────────────────────
 
-enum UserRole       { VIEWER ANALYST SENIOR_ANALYST ADMIN }
-enum CaseStatus     { OPEN UNDER_REVIEW PENDING_EVIDENCE ESCALATED CLOSED DISMISSED }
-enum CasePriority   { LOW MEDIUM HIGH CRITICAL }
-enum ReportSource   { MANUAL AUTOMATED THIRD_PARTY_API COMMUNITY_TIP }
-enum EvidenceType   { SCREENSHOT VIDEO LOG_FILE REPLAY_FILE EXTERNAL_REPORT API_DATA OTHER }
-enum EvidenceStatus { PENDING_REVIEW VERIFIED DISPUTED REJECTED }
-enum VerdictOutcome { GUILTY NOT_GUILTY INCONCLUSIVE SUSPENDED BANNED WARNING_ISSUED }
-enum NoteVisibility { INTERNAL RESTRICTED CONFIDENTIAL }
+enum UserRole {
+  VIEWER
+  ANALYST
+  SENIOR_ANALYST
+  ADMIN
+}
 
-// ─── USER ────────────────────────────────────────────────
+enum CaseStatus {
+  OPEN
+  UNDER_REVIEW
+  PENDING_EVIDENCE
+  ESCALATED
+  CLOSED
+  DISMISSED
+}
+
+enum CasePriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum EvidenceType {
+  SCREENSHOT
+  VIDEO
+  LOG_FILE
+  REPLAY_FILE
+  EXTERNAL_REPORT
+  API_DATA
+  OTHER
+}
+
+enum EvidenceStatus {
+  PENDING_REVIEW
+  VERIFIED
+  DISPUTED
+  REJECTED
+}
+
+enum NoteVisibility {
+  INTERNAL       // ANALYST and above
+  RESTRICTED     // SENIOR_ANALYST and above
+  CONFIDENTIAL   // ADMIN only
+}
+
+// ─────────────────────────────────────────
+// GAME  (top-level tenant)
+// ─────────────────────────────────────────
+
+model Game {
+  id        String   @id @default(cuid())
+  name      String                         // "Apex Legends"
+  slug      String   @unique               // "apex-legends"
+  logoUrl   String?
+  metadata  Json?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  // Config children
+  platforms          Platform[]
+  violationTypes     ViolationType[]
+  sanctionTemplates  SanctionTemplate[]
+  integrationSources IntegrationSource[]
+
+  // Cases
+  cases Case[]
+
+  @@map("games")
+}
+
+// ─────────────────────────────────────────
+// PLATFORM  (config table)
+// ─────────────────────────────────────────
+
+model Platform {
+  id                  String   @id @default(cuid())
+  gameId              String?                       // null = cross-game platform
+  name                String                        // "Steam"
+  slug                String   @unique              // "steam"
+  profileUrlTemplate  String?
+  // e.g. "https://steamcommunity.com/profiles/{{externalId}}"
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+
+  game     Game?     @relation(fields: [gameId], references: [id])
+  subjects Subject[]
+
+  @@index([gameId])
+  @@map("platforms")
+}
+
+// ─────────────────────────────────────────
+// VIOLATION TYPE  (config table)
+// Replaces: Tag + CaseTag + EvidenceType classification
+// ─────────────────────────────────────────
+
+model ViolationType {
+  id          String       @id @default(cuid())
+  gameId      String
+  name        String                              // "Aimbot"
+  slug        String                              // "aimbot"
+  description String?
+  severity    CasePriority @default(MEDIUM)       // reuses stable enum
+  color       String       @default("#6B7280")    // hex color for UI badge
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+
+  game  Game               @relation(fields: [gameId], references: [id])
+  cases CaseViolationType[]
+
+  @@unique([gameId, slug])
+  @@index([gameId])
+  @@map("violation_types")
+}
+
+// Join table: Case ↔ ViolationType
+model CaseViolationType {
+  caseId          String
+  violationTypeId String
+
+  case          Case          @relation(fields: [caseId],          references: [id], onDelete: Cascade)
+  violationType ViolationType @relation(fields: [violationTypeId], references: [id], onDelete: Cascade)
+
+  @@id([caseId, violationTypeId])
+  @@map("case_violation_types")
+}
+
+// ─────────────────────────────────────────
+// SANCTION TEMPLATE  (config table)
+// Replaces: VerdictOutcome enum
+// ─────────────────────────────────────────
+
+model SanctionTemplate {
+  id           String   @id @default(cuid())
+  gameId       String
+  name         String                       // "Permanent Hardware Ban"
+  slug         String                       // "permanent-hardware-ban"
+  description  String?
+  durationDays Int?                         // null = permanent
+  isAppealable Boolean  @default(true)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  game     Game      @relation(fields: [gameId], references: [id])
+  verdicts Verdict[]
+
+  @@unique([gameId, slug])
+  @@index([gameId])
+  @@map("sanction_templates")
+}
+
+// ─────────────────────────────────────────
+// INTEGRATION SOURCE  (config table)
+// Replaces: ReportSource enum
+// ─────────────────────────────────────────
+
+model IntegrationSource {
+  id         String   @id @default(cuid())
+  gameId     String
+  name       String                       // "Easy Anti-Cheat"
+  slug       String                       // "easy-anti-cheat"
+  webhookUrl String?
+  apiKeyHash String?                      // hashed — never store plaintext
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  game    Game     @relation(fields: [gameId], references: [id])
+  reports Report[]
+
+  @@unique([gameId, slug])
+  @@index([gameId])
+  @@map("integration_sources")
+}
+
+// ─────────────────────────────────────────
+// USER
+// ─────────────────────────────────────────
 
 model User {
   id          String    @id @default(cuid())
@@ -243,10 +517,13 @@ model User {
   @@map("users")
 }
 
-// ─── CASE ────────────────────────────────────────────────
+// ─────────────────────────────────────────
+// CASE
+// ─────────────────────────────────────────
 
 model Case {
   id           String       @id @default(cuid())
+  gameId       String
   caseNumber   String       @unique
   title        String
   description  String?      @db.Text
@@ -261,16 +538,19 @@ model Case {
   updatedAt    DateTime     @updatedAt
   deletedAt    DateTime?
 
-  assignedTo User?    @relation("CaseAssignedTo", fields: [assignedToId], references: [id])
-  openedBy   User     @relation("CaseOpenedBy",   fields: [openedById],   references: [id])
-  subjects   Subject[]
-  reports    Report[]
-  evidence   Evidence[]
-  notes      Note[]
-  verdict    Verdict?
-  tags       CaseTag[]
-  auditLogs  AuditLog[]
+  game       Game  @relation(fields: [gameId],       references: [id])
+  assignedTo User? @relation("CaseAssignedTo", fields: [assignedToId], references: [id])
+  openedBy   User  @relation("CaseOpenedBy",   fields: [openedById],   references: [id])
 
+  subjects        Subject[]
+  reports         Report[]
+  evidence        Evidence[]
+  notes           Note[]
+  verdict         Verdict?
+  violationTypes  CaseViolationType[]
+  auditLogs       AuditLog[]
+
+  @@index([gameId])
   @@index([caseNumber])
   @@index([status])
   @@index([priority])
@@ -280,51 +560,59 @@ model Case {
   @@map("cases")
 }
 
-// ─── SUBJECT ─────────────────────────────────────────────
+// ─────────────────────────────────────────
+// SUBJECT
+// ─────────────────────────────────────────
 
 model Subject {
   id          String   @id @default(cuid())
   caseId      String
+  platformId  String
   displayName String
-  externalId  String?
-  platform    String?
-  profileUrl  String?
+  externalId  String?                     // player ID on the external platform
+  profileUrl  String?                     // auto-built from Platform.profileUrlTemplate
   metadata    Json?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  case     Case     @relation(fields: [caseId],     references: [id], onDelete: Cascade)
+  platform Platform @relation(fields: [platformId], references: [id])
 
   @@index([caseId])
+  @@index([platformId])
   @@index([externalId])
-  @@index([platform])
   @@map("subjects")
 }
 
-// ─── REPORT ──────────────────────────────────────────────
+// ─────────────────────────────────────────
+// REPORT
+// ─────────────────────────────────────────
 
 model Report {
-  id           String       @id @default(cuid())
-  caseId       String
-  reportedById String
-  summary      String
-  detail       String?      @db.Text
-  source       ReportSource @default(MANUAL)
-  incidentAt   DateTime?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  id                  String    @id @default(cuid())
+  caseId              String
+  reportedById        String
+  integrationSourceId String?                        // null = entered manually
+  summary             String
+  detail              String?   @db.Text
+  incidentAt          DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
-  case       Case @relation(fields: [caseId],       references: [id], onDelete: Cascade)
-  reportedBy User @relation(fields: [reportedById], references: [id])
+  case              Case               @relation(fields: [caseId],              references: [id], onDelete: Cascade)
+  reportedBy        User               @relation(fields: [reportedById],        references: [id])
+  integrationSource IntegrationSource? @relation(fields: [integrationSourceId], references: [id])
 
   @@index([caseId])
   @@index([reportedById])
-  @@index([source])
+  @@index([integrationSourceId])
   @@index([incidentAt])
   @@map("reports")
 }
 
-// ─── EVIDENCE ────────────────────────────────────────────
+// ─────────────────────────────────────────
+// EVIDENCE
+// ─────────────────────────────────────────
 
 model Evidence {
   id           String         @id @default(cuid())
@@ -351,7 +639,9 @@ model Evidence {
   @@map("evidence")
 }
 
-// ─── ATTACHMENT ──────────────────────────────────────────
+// ─────────────────────────────────────────
+// ATTACHMENT
+// ─────────────────────────────────────────
 
 model Attachment {
   id         String   @id @default(cuid())
@@ -367,12 +657,17 @@ model Attachment {
   evidence Evidence? @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
   note     Note?     @relation(fields: [noteId],     references: [id], onDelete: Cascade)
 
+  // Constraint: exactly one of evidenceId or noteId must be set.
+  // Enforce with a DB check constraint (see §8).
+
   @@index([evidenceId])
   @@index([noteId])
   @@map("attachments")
 }
 
-// ─── NOTE ────────────────────────────────────────────────
+// ─────────────────────────────────────────
+// NOTE
+// ─────────────────────────────────────────
 
 model Note {
   id         String         @id @default(cuid())
@@ -395,50 +690,34 @@ model Note {
   @@map("notes")
 }
 
-// ─── VERDICT ─────────────────────────────────────────────
+// ─────────────────────────────────────────
+// VERDICT
+// ─────────────────────────────────────────
 
 model Verdict {
-  id           String         @id @default(cuid())
-  caseId       String         @unique
-  renderedById String
-  outcome      VerdictOutcome
-  rationale    String         @db.Text
-  effectiveAt  DateTime       @default(now())
-  expiresAt    DateTime?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  id                 String   @id @default(cuid())
+  caseId             String   @unique
+  sanctionTemplateId String
+  renderedById       String
+  rationale          String   @db.Text
+  effectiveAt        DateTime @default(now())
+  expiresAt          DateTime?               // derived from SanctionTemplate.durationDays
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  case       Case @relation(fields: [caseId],       references: [id], onDelete: Cascade)
-  renderedBy User @relation(fields: [renderedById], references: [id])
+  case             Case             @relation(fields: [caseId],             references: [id], onDelete: Cascade)
+  sanctionTemplate SanctionTemplate @relation(fields: [sanctionTemplateId], references: [id])
+  renderedBy       User             @relation(fields: [renderedById],       references: [id])
 
   @@index([caseId])
-  @@index([outcome])
+  @@index([sanctionTemplateId])
   @@index([effectiveAt])
   @@map("verdicts")
 }
 
-// ─── TAG & CASE_TAG ──────────────────────────────────────
-
-model Tag {
-  id          String    @id @default(cuid())
-  name        String    @unique
-  color       String    @default("#6B7280")
-  description String?
-  createdAt   DateTime  @default(now())
-  cases       CaseTag[]
-  @@map("tags")
-}
-
-model CaseTag {
-  caseId String
-  tagId  String
-  case   Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  tag    Tag  @relation(fields: [tagId],  references: [id], onDelete: Cascade)
-  @@id([caseId, tagId])
-  @@map("case_tags")
-}
-
-// ─── AUDIT LOG ───────────────────────────────────────────
+// ─────────────────────────────────────────
+// AUDIT LOG
+// ─────────────────────────────────────────
 
 model AuditLog {
   id         String   @id @default(cuid())
@@ -469,126 +748,277 @@ model AuditLog {
 
 ## 4. Entity Reference
 
-### 4.1 User
-Represents any human actor — analyst, admin, or viewer. Auth is external (OAuth/SSO); this model holds the profile and role.
+---
+
+### 4.1 Game
+
+**Table:** `games`
+
+The top-level tenant. One `Game` record per title (or per studio if sharing one CCIP install). Every config table — platforms, violation types, sanction templates, integration sources — is scoped to a `Game`. Cases also belong to a `Game`, providing full data isolation between titles.
 
 | Field | Type | Description |
 |---|---|---|
 | `id` | `String (cuid)` | Primary key |
-| `email` | `String` | Unique login identifier |
-| `displayName` | `String` | Human-readable name |
-| `role` | `UserRole` | Access control gate |
-| `isActive` | `Boolean` | Soft disable without deletion |
-| `deletedAt` | `DateTime?` | Soft-delete timestamp |
+| `name` | `String` | Display name (e.g., `"Apex Legends"`) |
+| `slug` | `String @unique` | URL-safe identifier (e.g., `"apex-legends"`) |
+| `logoUrl` | `String?` | Logo image for the UI |
+| `metadata` | `Json?` | Studio-specific custom fields |
+| `isActive` | `Boolean` | Soft-disable a game without deletion |
 
-**Example — query an analyst's open cases:**
+> **Multi-game setup:** Create one `Game` record per title in the seed file. All downstream config is scoped by `gameId`, so data from different titles never bleeds together.
+
+---
+
+### 4.2 Platform
+
+**Table:** `platforms`
+
+A registry of external gaming platforms where subjects have accounts. Replaces the free-text `platform` string on `Subject`. The `profileUrlTemplate` field auto-builds a subject's profile URL from their `externalId`, eliminating manual URL entry.
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `String (cuid)` | Primary key |
+| `gameId` | `String?` | FK → `Game`; `null` for cross-game platforms (Steam, Xbox Live, PSN) |
+| `name` | `String` | Display name (e.g., `"PlayStation Network"`) |
+| `slug` | `String @unique` | URL-safe key (e.g., `"psn"`) |
+| `profileUrlTemplate` | `String?` | URL with `{{externalId}}` placeholder |
+
+**Profile URL auto-generation:**
+
 ```typescript
-const cases = await prisma.case.findMany({
-  where: { assignedToId: userId, status: { not: "CLOSED" }, deletedAt: null },
-  include: { tags: { include: { tag: true } } },
-  orderBy: { priority: "desc" },
+function buildProfileUrl(template: string, externalId: string): string {
+  return template.replace("{{externalId}}", encodeURIComponent(externalId));
+}
+
+// Usage when creating a Subject:
+const platform = await prisma.platform.findUnique({ where: { slug: "steam" } });
+const profileUrl = buildProfileUrl(platform.profileUrlTemplate, subject.externalId);
+// → "https://steamcommunity.com/profiles/76561198012345678"
+```
+
+---
+
+### 4.3 ViolationType
+
+**Tables:** `violation_types`, `case_violation_types`
+
+Replaces the old flat `Tag` model and the `EvidenceType` classification role. A `ViolationType` is a game-specific, named category of cheating or rule-breaking with a built-in default severity. Multiple violation types can be applied to a single case via the `CaseViolationType` join table.
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `String (cuid)` | Primary key |
+| `gameId` | `String` | FK → `Game` — scoped per title |
+| `name` | `String` | Display label (e.g., `"Aimbot"`, `"Boosting"`) |
+| `slug` | `String` | URL-safe key (e.g., `"aimbot"`) — unique within a game |
+| `severity` | `CasePriority` | Default priority when this violation opens a case |
+| `color` | `String` | Hex color for UI badge (e.g., `"#EF4444"` for red) |
+
+> **vs. old `Tag`:** Tags were global and untyped. `ViolationType` is scoped to a game and carries a `severity` that can automatically set a new case's priority. A game dev adds new violation types in the seed file — no migration needed.
+
+---
+
+### 4.4 SanctionTemplate
+
+**Table:** `sanction_templates`
+
+Replaces the `VerdictOutcome` enum. A catalog of penalty definitions a studio pre-configures for their game. When an analyst renders a `Verdict`, they pick a template; the `durationDays` value is then used to compute `Verdict.expiresAt` automatically.
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `String (cuid)` | Primary key |
+| `gameId` | `String` | FK → `Game` |
+| `name` | `String` | Display label (e.g., `"Permanent Hardware Ban"`) |
+| `slug` | `String` | URL-safe key — unique within a game |
+| `durationDays` | `Int?` | `null` = permanent; set for timed penalties |
+| `isAppealable` | `Boolean` | Whether the verdict can be contested |
+
+**Auto-computing `expiresAt` on verdict creation:**
+
+```typescript
+const template = await prisma.sanctionTemplate.findUnique({
+  where: { id: input.sanctionTemplateId }
+});
+
+const expiresAt = template.durationDays
+  ? addDays(new Date(), template.durationDays)
+  : null; // permanent
+
+await prisma.verdict.create({
+  data: { ...input, effectiveAt: new Date(), expiresAt }
 });
 ```
 
 ---
 
-### 4.2 Case
-The central entity. Every other model anchors to a `Case`.
+### 4.5 IntegrationSource
+
+**Table:** `integration_sources`
+
+Replaces the `ReportSource` enum. A registry of external systems that can feed reports into CCIP — third-party anti-cheat engines, studio-built ML pipelines, community tip portals, webhooks. Each source stores its own `webhookUrl` and a **hashed** API key for verification.
 
 | Field | Type | Description |
 |---|---|---|
-| `caseNumber` | `String @unique` | Human-readable ID (e.g., `CCIP-2026-00142`) |
-| `status` | `CaseStatus` | Lifecycle stage |
-| `priority` | `CasePriority` | Triage priority with SLA targets |
-| `assignedToId` | `String?` | Currently assigned analyst |
-| `metadata` | `Json?` | Extensible bag (game title, match ID, etc.) |
+| `id` | `String (cuid)` | Primary key |
+| `gameId` | `String` | FK → `Game` |
+| `name` | `String` | Display name (e.g., `"Easy Anti-Cheat"`) |
+| `slug` | `String` | URL-safe key — unique within a game |
+| `webhookUrl` | `String?` | Endpoint CCIP calls to notify this system |
+| `apiKeyHash` | `String?` | Bcrypt/Argon2 hash — never store plaintext |
 
-**Auto-generating `caseNumber`:**
+> **Manual reports:** When an analyst enters a report by hand, `Report.integrationSourceId` is `null`. This replaces the old `source = MANUAL` enum value.
+
+---
+
+### 4.6 User
+
+**Table:** `users`
+
+Internal platform staff — analysts, admins, and viewers who log into CCIP. Authentication is handled externally (OAuth/SSO). Users are **not** the people being investigated; those are `Subject` records.
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `String (cuid)` | Primary key |
+| `email` | `String @unique` | Login identifier |
+| `displayName` | `String` | Name shown in the UI |
+| `role` | `UserRole` | Access control gate — see §6 |
+| `isActive` | `Boolean` | Soft-disable without deletion |
+| `deletedAt` | `DateTime?` | Soft-delete timestamp |
+
+---
+
+### 4.7 Case
+
+**Table:** `cases`
+
+The central investigation file. Now scoped to a `Game` via `gameId`. All investigative records (subjects, reports, evidence, notes, verdict) attach to a case.
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `String (cuid)` | Primary key |
+| `gameId` | `String` | FK → `Game` — isolates cases by title |
+| `caseNumber` | `String @unique` | Human-readable ID (e.g., `CCIP-APEX-2026-00142`) |
+| `status` | `CaseStatus` | Lifecycle stage |
+| `priority` | `CasePriority` | Triage priority; can be auto-set from `ViolationType.severity` |
+| `assignedToId` | `String?` | FK → currently assigned `User` |
+| `metadata` | `Json?` | Game-specific fields (match ID, server region, etc.) |
+
+**Recommended `caseNumber` format — include the game slug:**
+
 ```typescript
-function generateCaseNumber(): string {
-  const year = new Date().getFullYear();
+function generateCaseNumber(gameSlug: string): string {
+  const slug = gameSlug.toUpperCase().slice(0, 6); // "APEX"
+  const year = new Date().getFullYear();            // 2026
   const seq  = String(nextSequence()).padStart(5, "0");
-  return `CCIP-${year}-${seq}`;
+  return `CCIP-${slug}-${year}-${seq}`;            // CCIP-APEX-2026-00142
 }
 ```
 
 ---
 
-### 4.3 Subject
-The individual(s) alleged to have cheated. One case may link to multiple subjects (e.g., a coordinated ring). Tied to an external identity via `externalId` + `platform`.
+### 4.8 Subject
+
+**Table:** `subjects`
+
+The accused player. Now links to a `Platform` record instead of storing a free-text platform name. The `profileUrl` can be auto-generated from `Platform.profileUrlTemplate` + `externalId`.
+
+| Field | Type | Description |
+|---|---|---|
+| `platformId` | `String` | FK → `Platform` (replaces old `platform String?`) |
+| `externalId` | `String?` | Player's ID on that platform (Steam64 ID, PSN ID, etc.) |
+| `profileUrl` | `String?` | Auto-built or manually overridden |
+| `metadata` | `Json?` | Rank, hours played, account age, etc. |
 
 ---
 
-### 4.4 Report
-A formal allegation tied to a case. Multiple reports may exist per case. Immutable after creation; captures the `source` (manual, automated, API, or community tip) and `incidentAt` timestamp.
+### 4.9 Report
+
+**Table:** `reports`
+
+A formal cheating allegation linked to a case. Now references `IntegrationSource` instead of a hardcoded enum value. When `integrationSourceId` is `null`, the report was entered manually by an analyst.
+
+| Field | Type | Description |
+|---|---|---|
+| `integrationSourceId` | `String?` | FK → `IntegrationSource`; `null` = manual entry |
+| `summary` | `String` | One-line allegation description |
+| `detail` | `String?` | Full free-text narrative |
+| `incidentAt` | `DateTime?` | When the alleged cheating occurred |
 
 ---
 
-### 4.5 Evidence
-Structured evidence items with a review lifecycle:
+### 4.10 Evidence
 
+**Table:** `evidence`
+
+File-based or data-based evidence attached to a case. `EvidenceType` is kept as a stable enum because it describes the **format** of the file (screenshot, video, log), which is universal — not game-specific. The **kind of cheating** it relates to is captured through `CaseViolationType`.
+
+Evidence review lifecycle:
 ```
 PENDING_REVIEW → VERIFIED
                ↘ DISPUTED → VERIFIED
                           ↘ REJECTED
 ```
 
-The `metadata` field holds technical attributes: SHA-256 checksums, video duration, resolution, etc.
+---
+
+### 4.11 Attachment
+
+**Table:** `attachments`
+
+Binary files in object storage (S3 / Azure Blob / GCS). Only the reference (`storageKey`, `storageUrl`) is stored in the database. Each attachment belongs to **either** an `Evidence` item or a `Note` — never both. Enforced with a DB check constraint (see §8).
 
 ---
 
-### 4.6 Attachment
-Binary files stored in object storage (S3 / Azure Blob). The DB stores only the reference (`storageKey`, `storageUrl`) — no binary data. Each attachment belongs to **either** an `Evidence` item or a `Note` (never both — enforce with a DB check constraint):
+### 4.12 Note
 
-```sql
-ALTER TABLE attachments
-  ADD CONSTRAINT chk_attachment_owner CHECK (
-    ("evidence_id" IS NOT NULL AND "note_id" IS NULL) OR
-    ("evidence_id" IS NULL     AND "note_id" IS NOT NULL)
-  );
-```
+**Table:** `notes`
 
----
-
-### 4.7 Note
-Free-form analyst notes with three visibility tiers:
+Analyst notes with three visibility tiers:
 
 | Visibility | Min Role | Purpose |
 |---|---|---|
-| `INTERNAL` | `ANALYST` | Standard case notes |
-| `RESTRICTED` | `SENIOR_ANALYST` | Sensitive deliberations |
-| `CONFIDENTIAL` | `ADMIN` | Legal / HR / executive-only |
-
-Pinned notes (`isPinned: true`) surface at the top of the case feed.
+| `INTERNAL` | `ANALYST` | Standard investigation notes |
+| `RESTRICTED` | `SENIOR_ANALYST` | Sensitive deliberation notes |
+| `CONFIDENTIAL` | `ADMIN` | Legal, HR, or executive-only notes |
 
 ---
 
-### 4.8 Verdict
-The final determination. At most **one verdict per case** (`@unique` on `caseId`). `expiresAt` supports time-limited penalties (e.g., a 30-day ban). `rationale` is required for accountability.
+### 4.13 Verdict
+
+**Table:** `verdicts`
+
+The final determination of a case. Now references a `SanctionTemplate` instead of a hardcoded `VerdictOutcome` enum value, making the penalty catalog fully configurable per game. At most one verdict per case (`@unique` on `caseId`).
+
+| Field | Type | Description |
+|---|---|---|
+| `sanctionTemplateId` | `String` | FK → `SanctionTemplate` (replaces `outcome` enum) |
+| `rationale` | `String` | Required written justification |
+| `expiresAt` | `DateTime?` | Auto-computed from `SanctionTemplate.durationDays` |
 
 ---
 
-### 4.9 Tag & CaseTag
-Flexible labels (e.g., `"aimbot"`, `"wallhack"`, `"boosting"`) applied to cases via the `CaseTag` join table. Tags are shared globally and managed by admins. Each tag carries a hex `color` for UI badge rendering.
+### 4.14 AuditLog
 
----
+**Table:** `audit_logs`
 
-### 4.10 AuditLog
-Append-only immutable log of every state-changing action. Captures `before` / `after` JSON snapshots for forensic reconstruction. Enforce immutability with a DB trigger rejecting `UPDATE` / `DELETE` on `audit_logs`.
+Append-only immutable log of every state-changing action. Captures `before` / `after` JSON snapshots for forensic reconstruction and chain-of-custody verification. Never updated or deleted — enforce at the DB layer with a trigger.
 
 **Recommended action constants:**
+
 ```typescript
 export const AuditActions = {
-  CASE_CREATED:            "CASE_CREATED",
-  CASE_STATUS_CHANGED:     "CASE_STATUS_CHANGED",
-  CASE_ASSIGNED:           "CASE_ASSIGNED",
-  CASE_CLOSED:             "CASE_CLOSED",
-  EVIDENCE_UPLOADED:       "EVIDENCE_UPLOADED",
-  EVIDENCE_STATUS_CHANGED: "EVIDENCE_STATUS_CHANGED",
-  NOTE_CREATED:            "NOTE_CREATED",
-  NOTE_DELETED:            "NOTE_DELETED",
-  VERDICT_RENDERED:        "VERDICT_RENDERED",
-  USER_ROLE_CHANGED:       "USER_ROLE_CHANGED",
+  CASE_CREATED:             "CASE_CREATED",
+  CASE_STATUS_CHANGED:      "CASE_STATUS_CHANGED",
+  CASE_ASSIGNED:            "CASE_ASSIGNED",
+  CASE_CLOSED:              "CASE_CLOSED",
+  CASE_VIOLATION_ADDED:     "CASE_VIOLATION_ADDED",
+  CASE_VIOLATION_REMOVED:   "CASE_VIOLATION_REMOVED",
+  EVIDENCE_UPLOADED:        "EVIDENCE_UPLOADED",
+  EVIDENCE_STATUS_CHANGED:  "EVIDENCE_STATUS_CHANGED",
+  NOTE_CREATED:             "NOTE_CREATED",
+  NOTE_DELETED:             "NOTE_DELETED",
+  VERDICT_RENDERED:         "VERDICT_RENDERED",
+  USER_ROLE_CHANGED:        "USER_ROLE_CHANGED",
+  INTEGRATION_SOURCE_ADDED: "INTEGRATION_SOURCE_ADDED",
 } as const;
 ```
 
@@ -598,12 +1028,20 @@ export const AuditActions = {
 
 | From | Cardinality | To | Notes |
 |---|---|---|---|
+| `Game` | 1 : many | `Platform` | Platforms scoped to a game (or global with null gameId) |
+| `Game` | 1 : many | `ViolationType` | Cheat categories per title |
+| `Game` | 1 : many | `SanctionTemplate` | Penalty catalog per title |
+| `Game` | 1 : many | `IntegrationSource` | Anti-cheat integrations per title |
+| `Game` | 1 : many | `Case` | All cases scoped to a game |
+| `Platform` | 1 : many | `Subject` | Platform identity for each accused player |
+| `ViolationType` | many : many | `Case` | Via `CaseViolationType` join table |
+| `SanctionTemplate` | 1 : many | `Verdict` | Selected penalty template |
+| `IntegrationSource` | 1 : many | `Report` | Source system for each report |
 | `User` | 1 : many | `Case` (opened) | A user may open many cases |
 | `User` | 1 : many | `Case` (assigned) | A user may be assigned many cases |
 | `User` | 1 : many | `Report / Evidence / Note / Verdict` | Authorship relations |
 | `Case` | 1 : many | `Subject / Report / Evidence / Note` | Core case contents |
 | `Case` | 1 : 1 | `Verdict` | At most one verdict per case |
-| `Case` | many : many | `Tag` | Via `CaseTag` join table |
 | `Evidence` | 1 : many | `Attachment` | File attachments on evidence |
 | `Note` | 1 : many | `Attachment` | File attachments on notes |
 
@@ -611,24 +1049,212 @@ export const AuditActions = {
 
 ## 6. Enum Reference
 
-### `CasePriority` with SLA targets
+These are the **stable** enums that ship with CCIP and do not vary by game. Everything game-specific is a config table.
 
-| Value | SLA | Description |
+### `UserRole`
+
+| Value | Description |
+|---|---|
+| `VIEWER` | Read-only access to non-confidential data |
+| `ANALYST` | Can create cases, upload evidence, write internal notes |
+| `SENIOR_ANALYST` | Can render verdicts and access restricted notes |
+| `ADMIN` | Full access; manages users, config tables, system settings |
+
+### `CaseStatus`
+
+| Value | Description |
+|---|---|
+| `OPEN` | Newly created, awaiting assignment |
+| `UNDER_REVIEW` | Actively being investigated |
+| `PENDING_EVIDENCE` | Waiting for additional evidence |
+| `ESCALATED` | Flagged for senior review |
+| `CLOSED` | Verdict rendered; case concluded |
+| `DISMISSED` | Allegation unfounded; no action taken |
+
+### `CasePriority`
+
+| Value | Default SLA | Description |
 |---|---|---|
-| `LOW` | 30 days | Routine / low-confidence |
+| `LOW` | 30 days | Routine or low-confidence |
 | `MEDIUM` | 14 days | Standard investigation |
 | `HIGH` | 5 days | Credible evidence; active cheating suspected |
 | `CRITICAL` | 24 hours | Confirmed, ongoing, or high-impact |
 
-*(Full enum tables for `UserRole`, `CaseStatus`, `ReportSource`, `EvidenceType`, `EvidenceStatus`, `VerdictOutcome`, and `NoteVisibility` are included in the complete document.)*
+### `EvidenceType` *(file format — stable across all games)*
+
+| Value | Description |
+|---|---|
+| `SCREENSHOT` | Static image capture |
+| `VIDEO` | Video recording or clip |
+| `LOG_FILE` | Server or client log file |
+| `REPLAY_FILE` | Game replay or demo file |
+| `EXTERNAL_REPORT` | Report PDF from a third-party anti-cheat service |
+| `API_DATA` | Structured data payload from an external API |
+| `OTHER` | Catch-all for unlisted file types |
+
+### `EvidenceStatus`
+
+| Value | Description |
+|---|---|
+| `PENDING_REVIEW` | Newly uploaded; awaiting analyst review |
+| `VERIFIED` | Confirmed authentic and relevant |
+| `DISPUTED` | Authenticity or relevance is challenged |
+| `REJECTED` | Deemed irrelevant or fabricated |
+
+### `NoteVisibility`
+
+| Value | Min Role | Description |
+|---|---|---|
+| `INTERNAL` | `ANALYST` | Standard analyst notes |
+| `RESTRICTED` | `SENIOR_ANALYST` | Sensitive deliberations |
+| `CONFIDENTIAL` | `ADMIN` | Legal / HR / executive-only |
 
 ---
 
-## 7. Design Decisions & Conventions
+## 7. Seed File
 
-**CUID primary keys** — URL-safe, time-sortable, non-guessable. Safer than sequential integers for a security-sensitive platform.
+This is the **primary customization layer** for any studio picking up CCIP. Edit `prisma/seed.ts` for your title — no schema changes required.
 
-**Soft deletes** — `deletedAt` on `User`, `Case`, `Evidence`, and `Note` preserves referential integrity and enables data recovery. Apply a global Prisma middleware to filter `WHERE deletedAt IS NULL` by default:
+```typescript
+// prisma/seed.ts
+// ─────────────────────────────────────────────────────────────
+// Edit this file to configure CCIP for your game.
+// Run: npx prisma db seed
+// ─────────────────────────────────────────────────────────────
+
+import { PrismaClient, CasePriority } from "@prisma/client";
+const prisma = new PrismaClient();
+
+async function main() {
+
+  // ── 1. GAME ───────────────────────────────────────────────
+  const game = await prisma.game.upsert({
+    where:  { slug: "my-game" },
+    update: {},
+    create: { name: "My Game", slug: "my-game" },
+  });
+
+  // ── 2. PLATFORMS ──────────────────────────────────────────
+  // Add or remove platforms your game supports.
+  // profileUrlTemplate uses {{externalId}} as a placeholder.
+  await prisma.platform.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        name:                "Steam",
+        slug:                "steam",
+        profileUrlTemplate:  "https://steamcommunity.com/profiles/{{externalId}}",
+      },
+      {
+        name:                "Xbox Live",
+        slug:                "xbox-live",
+        profileUrlTemplate:  "https://account.xbox.com/profile?gamertag={{externalId}}",
+      },
+      {
+        name:                "PlayStation Network",
+        slug:                "psn",
+        profileUrlTemplate:  "https://my.playstation.com/profile/{{externalId}}",
+      },
+      {
+        gameId:              game.id,          // game-specific platform
+        name:                "My Game Launcher",
+        slug:                "my-game-launcher",
+        profileUrlTemplate:  "https://mygame.com/players/{{externalId}}",
+      },
+    ],
+  });
+
+  // ── 3. VIOLATION TYPES ────────────────────────────────────
+  // Define every cheat/rule-break category for your game.
+  // severity maps to CasePriority and auto-sets new case priority.
+  await prisma.violationType.createMany({
+    skipDuplicates: true,
+    data: [
+      { gameId: game.id, name: "Aimbot",              slug: "aimbot",              severity: CasePriority.CRITICAL, color: "#DC2626" },
+      { gameId: game.id, name: "Wallhack",             slug: "wallhack",            severity: CasePriority.HIGH,     color: "#EA580C" },
+      { gameId: game.id, name: "Speed Hack",           slug: "speed-hack",          severity: CasePriority.HIGH,     color: "#EA580C" },
+      { gameId: game.id, name: "Radar Hack",           slug: "radar-hack",          severity: CasePriority.HIGH,     color: "#EA580C" },
+      { gameId: game.id, name: "Macro / Script Abuse", slug: "macro-script",        severity: CasePriority.MEDIUM,   color: "#CA8A04" },
+      { gameId: game.id, name: "Account Sharing",      slug: "account-sharing",     severity: CasePriority.MEDIUM,   color: "#CA8A04" },
+      { gameId: game.id, name: "Boosting",             slug: "boosting",            severity: CasePriority.LOW,      color: "#65A30D" },
+      { gameId: game.id, name: "Smurfing",             slug: "smurfing",            severity: CasePriority.LOW,      color: "#65A30D" },
+      { gameId: game.id, name: "Toxic Behaviour",      slug: "toxic-behaviour",     severity: CasePriority.LOW,      color: "#6B7280" },
+      { gameId: game.id, name: "Exploit Abuse",        slug: "exploit-abuse",       severity: CasePriority.MEDIUM,   color: "#CA8A04" },
+    ],
+  });
+
+  // ── 4. SANCTION TEMPLATES ─────────────────────────────────
+  // Define every penalty your game uses.
+  // durationDays: null = permanent, any int = timed ban.
+  await prisma.sanctionTemplate.createMany({
+    skipDuplicates: true,
+    data: [
+      { gameId: game.id, name: "Formal Warning",         slug: "warning",           durationDays: null, isAppealable: true  },
+      { gameId: game.id, name: "7-Day Suspension",       slug: "ban-7d",            durationDays: 7,    isAppealable: true  },
+      { gameId: game.id, name: "30-Day Suspension",      slug: "ban-30d",           durationDays: 30,   isAppealable: true  },
+      { gameId: game.id, name: "Permanent Ban",          slug: "ban-permanent",     durationDays: null, isAppealable: false },
+      { gameId: game.id, name: "Permanent Hardware Ban", slug: "ban-hardware",      durationDays: null, isAppealable: false },
+      { gameId: game.id, name: "Rank Reset",             slug: "rank-reset",        durationDays: null, isAppealable: true  },
+      { gameId: game.id, name: "Competitive Cooldown",   slug: "competitive-cooldown", durationDays: 14, isAppealable: false },
+      { gameId: game.id, name: "Case Dismissed",         slug: "dismissed",         durationDays: null, isAppealable: false },
+    ],
+  });
+
+  // ── 5. INTEGRATION SOURCES ────────────────────────────────
+  // Register every external system that sends reports to CCIP.
+  // Omit fields your game doesn't use.
+  await prisma.integrationSource.createMany({
+    skipDuplicates: true,
+    data: [
+      { gameId: game.id, name: "Easy Anti-Cheat",   slug: "easy-anti-cheat" },
+      { gameId: game.id, name: "VAC",                slug: "vac"             },
+      { gameId: game.id, name: "BattlEye",           slug: "battleye"        },
+      { gameId: game.id, name: "Community Tip Form", slug: "community-tip"   },
+      { gameId: game.id, name: "ML Detection Pipeline", slug: "ml-pipeline"  },
+    ],
+  });
+
+  // ── 6. ADMIN USER ─────────────────────────────────────────
+  await prisma.user.upsert({
+    where:  { email: "admin@yourstudio.com" },
+    update: {},
+    create: {
+      email:       "admin@yourstudio.com",
+      displayName: "Studio Admin",
+      role:        "ADMIN",
+    },
+  });
+
+  console.log("✅ CCIP seed complete.");
+}
+
+main()
+  .catch(console.error)
+  .finally(() => prisma.$disconnect());
+```
+
+---
+
+## 8. Design Decisions & Conventions
+
+### Enums vs. Config Tables
+
+The v2 rule: if a list of values **varies by game**, it's a config table. If it's a **universal workflow state**, it stays as an enum.
+
+| Decision | Rationale |
+|---|---|
+| `ViolationType` replaces `Tag` + enum | Cheat categories are game-specific; tags were global and untyped |
+| `SanctionTemplate` replaces `VerdictOutcome` | Penalty systems differ wildly — some studios use coaching bans, rank resets, etc. |
+| `IntegrationSource` replaces `ReportSource` | Studios plug in different anti-cheat APIs; the list is open-ended |
+| `EvidenceType` stays as enum | File format types (screenshot, video, log) are universal |
+| `CaseStatus`, `UserRole` stay as enums | Workflow states don't vary by game |
+
+### CUID Primary Keys
+All PKs use `@default(cuid())`. CUIDs are URL-safe, time-sortable, and non-guessable — important for a security-sensitive platform.
+
+### Soft Deletes
+`User`, `Case`, `Evidence`, and `Note` use `deletedAt` instead of hard deletes. Enforce globally with a Prisma middleware:
+
 ```typescript
 prisma.$use(async (params, next) => {
   const softDeleteModels = ["User", "Case", "Evidence", "Note"];
@@ -639,13 +1265,44 @@ prisma.$use(async (params, next) => {
 });
 ```
 
-**Immutable AuditLog** — Never update or delete rows. Enforce at the DB layer with a trigger that rejects `UPDATE`/`DELETE` on `audit_logs`.
+### Immutable Audit Log
+`AuditLog` rows are never updated or deleted. Enforce at the database layer:
 
-**`metadata` JSONB** — PostgreSQL JSONB on `Case`, `Subject`, and `Evidence` for platform-specific extensibility without schema migrations. Examples:
-- `Case.metadata`: `{ "gameTitle": "Apex Legends", "matchId": "abc123" }`
+```sql
+CREATE OR REPLACE FUNCTION prevent_audit_log_mutation()
+RETURNS TRIGGER AS $$
+BEGIN
+  RAISE EXCEPTION 'audit_logs rows are immutable';
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER audit_log_immutable
+BEFORE UPDATE OR DELETE ON audit_logs
+FOR EACH ROW EXECUTE FUNCTION prevent_audit_log_mutation();
+```
+
+### Attachment Ownership Constraint
+`Attachment.evidenceId` and `Attachment.noteId` are mutually exclusive. Add via a migration:
+
+```sql
+ALTER TABLE "attachments"
+  ADD CONSTRAINT "chk_attachment_owner"
+  CHECK (
+    ("evidence_id" IS NOT NULL AND "note_id" IS NULL) OR
+    ("evidence_id" IS NULL     AND "note_id" IS NOT NULL)
+  );
+```
+
+### `metadata` JSONB Fields
+`Game`, `Case`, `Subject`, and `Evidence` carry a `metadata Json?` for game-specific attributes that don't warrant a schema change:
+
+- `Case.metadata`: `{ "matchId": "abc123", "serverRegion": "us-east-1" }`
 - `Subject.metadata`: `{ "rank": "Diamond IV", "hoursPlayed": 1240 }`
 - `Evidence.metadata`: `{ "sha256": "e3b0c44...", "durationSeconds": 47 }`
 
+### Platform Profile URL Generation
+When creating a `Subject`, auto-generate `profileUrl` from the platform template rather than requiring analysts to enter it manually. If `externalId` is not provided or the platform has no template, leave `profileUrl` null.
+
 ---
 
-*End of CCIP Data Model Reference*
+*End of CCIP Data Model Reference — v2.0.0*
