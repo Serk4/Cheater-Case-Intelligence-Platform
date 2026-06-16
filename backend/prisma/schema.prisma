@@ -1,0 +1,53 @@
+// Prisma schema — TODO: expand models as requirements solidify
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// TODO: Define Report model
+model Report {
+  id          String   @id @default(cuid())
+  reportedBy  String
+  targetPlayer String
+  description String
+  status      String   @default("pending")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // TODO: relate to Case, Evidence
+}
+
+// TODO: Define Evidence model
+model Evidence {
+  id        String   @id @default(cuid())
+  type      String
+  url       String
+  createdAt DateTime @default(now())
+
+  // TODO: relate to Report, Case
+}
+
+// TODO: Define Case model
+model Case {
+  id        String   @id @default(cuid())
+  status    String   @default("open")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // TODO: relate to Reports, Evidence, assigned User
+}
+
+// TODO: Define User model
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  role      String   @default("viewer")
+  createdAt DateTime @default(now())
+
+  // TODO: add auth fields (passwordHash, etc.)
+}

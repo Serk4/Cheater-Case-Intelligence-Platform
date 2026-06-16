@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+.next/
+
+# Environment files — never commit real credentials
+.env
+backend/.env
+frontend/.env
+
+# Prisma generated client
+backend/node_modules/
+
+# Vite cache
+frontend/.vite/
+
+# Editor / OS
+.DS_Store
+*.swp
+.idea/
+.vscode/
