@@ -38,116 +38,156 @@ The Cheater Case Intelligence Platform (CCIP) is a case-management and intellige
 ```mermaid
 erDiagram
     USER {
-        string  id          PK
-        string  email
-        string  displayName
-        string  avatarUrl
-        UserRole role
+        string id PK
+        string email
+        string displayName
+        string avatarUrl
+        string role
         boolean isActive
         datetime createdAt
         datetime updatedAt
         datetime deletedAt
     }
+
     CASE {
-        string      id          PK
-        string      caseNumber  UK
-        string      title
-        CaseStatus  status
-        CasePriority priority
-        string      assignedToId FK
-        string      openedById   FK
-        datetime    openedAt
-        datetime    closedAt
-        json        metadata
-        datetime    deletedAt
+        string id PK
+        string caseNumber UK
+        string title
+        string description
+        string status
+        string priority
+        string assignedToId FK
+        string openedById FK
+        datetime openedAt
+        datetime closedAt
+        json metadata
+        datetime createdAt
+        datetime updatedAt
+        datetime deletedAt
     }
+
     SUBJECT {
-        string  id          PK
-        string  caseId      FK
-        string  displayName
-        string  externalId
-        string  platform
-        string  profileUrl
-        json    metadata
+        string id PK
+        string caseId FK
+        string displayName
+        string externalId
+        string platform
+        string profileUrl
+        json metadata
+        datetime createdAt
+        datetime updatedAt
     }
+
     REPORT {
-        string       id           PK
-        string       caseId       FK
-        string       reportedById FK
-        string       summary
-        ReportSource source
-        datetime     incidentAt
+        string id PK
+        string caseId FK
+        string reportedById FK
+        string summary
+        string detail
+        string source
+        datetime incidentAt
+        datetime createdAt
+        datetime updatedAt
     }
+
     EVIDENCE {
-        string         id           PK
-        string         caseId       FK
-        string         uploadedById FK
-        string         title
-        EvidenceType   evidenceType
-        EvidenceStatus status
-        json           metadata
-        datetime       deletedAt
+        string id PK
+        string caseId FK
+        string uploadedById FK
+        string title
+        string description
+        string evidenceType
+        string status
+        json metadata
+        datetime capturedAt
+        datetime createdAt
+        datetime updatedAt
+        datetime deletedAt
     }
+
     ATTACHMENT {
-        string  id         PK
-        string  evidenceId FK
-        string  noteId     FK
-        string  fileName
-        string  mimeType
-        int     sizeBytes
-        string  storageKey
-        string  storageUrl
-    }
-    NOTE {
-        string         id         PK
-        string         caseId     FK
-        string         authorId   FK
-        string         body
-        boolean        isPinned
-        NoteVisibility visibility
-        datetime       deletedAt
-    }
-    VERDICT {
-        string         id           PK
-        string         caseId       FK
-        string         renderedById FK
-        VerdictOutcome outcome
-        string         rationale
-        datetime       effectiveAt
-        datetime       expiresAt
-    }
-    TAG      { string id PK; string name UK; string color }
-    CASE_TAG { string caseId FK; string tagId FK }
-    AUDIT_LOG {
-        string  id         PK
-        string  actorId    FK
-        string  caseId     FK
-        string  action
-        string  entityType
-        string  entityId
-        json    before
-        json    after
-        string  ipAddress
+        string id PK
+        string evidenceId FK
+        string noteId FK
+        string fileName
+        string mimeType
+        int sizeBytes
+        string storageKey
+        string storageUrl
         datetime createdAt
     }
 
-    USER        ||--o{ CASE        : "opens"
-    USER        ||--o{ CASE        : "assigned to"
-    USER        ||--o{ REPORT      : "files"
-    USER        ||--o{ EVIDENCE    : "uploads"
-    USER        ||--o{ NOTE        : "authors"
-    USER        ||--o{ VERDICT     : "renders"
-    USER        ||--o{ AUDIT_LOG   : "generates"
-    CASE        ||--o{ SUBJECT     : "has"
-    CASE        ||--o{ REPORT      : "receives"
-    CASE        ||--o{ EVIDENCE    : "collects"
-    CASE        ||--o{ NOTE        : "contains"
-    CASE        ||--o| VERDICT     : "closes with"
-    CASE        ||--o{ CASE_TAG    : "tagged by"
-    CASE        ||--o{ AUDIT_LOG   : "logged in"
-    EVIDENCE    ||--o{ ATTACHMENT  : "has"
-    NOTE        ||--o{ ATTACHMENT  : "has"
-    TAG         ||--o{ CASE_TAG    : "used in"
+    NOTE {
+        string id PK
+        string caseId FK
+        string authorId FK
+        string body
+        boolean isPinned
+        string visibility
+        datetime createdAt
+        datetime updatedAt
+        datetime deletedAt
+    }
+
+    VERDICT {
+        string id PK
+        string caseId UK
+        string renderedById FK
+        string outcome
+        string rationale
+        datetime effectiveAt
+        datetime expiresAt
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    TAG {
+        string id PK
+        string name UK
+        string color
+        string description
+        datetime createdAt
+    }
+
+    CASE_TAG {
+        string caseId FK
+        string tagId FK
+    }
+
+    AUDIT_LOG {
+        string id PK
+        string actorId FK
+        string caseId FK
+        string action
+        string entityType
+        string entityId
+        json before
+        json after
+        string ipAddress
+        string userAgent
+        datetime createdAt
+    }
+
+    USER ||--o{ CASE : "opens"
+    USER ||--o{ CASE : "assigned to"
+    USER ||--o{ REPORT : "files"
+    USER ||--o{ EVIDENCE : "uploads"
+    USER ||--o{ NOTE : "authors"
+    USER ||--o{ VERDICT : "renders"
+    USER ||--o{ AUDIT_LOG : "generates"
+
+    CASE ||--o{ SUBJECT : "has"
+    CASE ||--o{ REPORT : "receives"
+    CASE ||--o{ EVIDENCE : "collects"
+    CASE ||--o{ NOTE : "contains"
+    CASE ||--o| VERDICT : "closes with"
+    CASE ||--o{ CASE_TAG : "tagged by"
+    CASE ||--o{ AUDIT_LOG : "logged in"
+
+    EVIDENCE ||--o{ ATTACHMENT : "has"
+    NOTE ||--o{ ATTACHMENT : "has"
+
+    TAG ||--o{ CASE_TAG : "used in"
 ```
 
 ---
