@@ -1,4 +1,8 @@
-// Prisma schema — TODO: expand models as requirements solidify
+// ============================================================
+// CCIP — Prisma Schema
+// Database: PostgreSQL 18
+// Version:  2.0.0 — extensible, game-agnostic
+// ============================================================
 
 generator client {
   provider = "prisma-client-js"
@@ -9,45 +13,439 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// TODO: Define Report model
-model Report {
+// ─────────────────────────────────────────
+// STABLE ENUMS
+// These are universal workflow states that
+// do not vary by game. All game-specific
+// "lists of options" are config tables below.
+// ─────────────────────────────────────────
+
+enum UserRole {
+  VIEWER
+  ANALYST
+  SENIOR_ANALYST
+  ADMIN
+}
+
+enum CaseStatus {
+  OPEN
+  UNDER_REVIEW
+  PENDING_EVIDENCE
+  ESCALATED
+  CLOSED
+  DISMISSED
+}
+
+enum CasePriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum EvidenceType {
+  SCREENSHOT
+  VIDEO
+  LOG_FILE
+  REPLAY_FILE
+  EXTERNAL_REPORT
+  API_DATA
+  OTHER
+}
+
+enum EvidenceStatus {
+  PENDING_REVIEW
+  VERIFIED
+  DISPUTED
+  REJECTED
+}
+
+enum NoteVisibility {
+  INTERNAL       // ANALYST and above
+  RESTRICTED     // SENIOR_ANALYST and above
+  CONFIDENTIAL   // ADMIN only
+}
+
+// ─────────────────────────────────────────
+// GAME  (top-level tenant)
+// ─────────────────────────────────────────
+
+model Game {
+  id        String   @id @default(cuid())
+  name      String                         // "Apex Legends"
+  slug      String   @unique               // "apex-legends"
+  logoUrl   String?
+  metadata  Json?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  // Config children
+  platforms          Platform[]
+  violationTypes     ViolationType[]
+  sanctionTemplates  SanctionTemplate[]
+  integrationSources IntegrationSource[]
+
+  // Cases
+  cases Case[]
+
+  @@map("games")
+}
+
+// ─────────────────────────────────────────
+// PLATFORM  (config table)
+// ─────────────────────────────────────────
+
+model Platform {
+  id                  String   @id @default(cuid())
+  gameId              String?                       // null = cross-game platform
+  name                String                        // "Steam"
+  slug                String   @unique              // "steam"
+  profileUrlTemplate  String?
+  // e.g. "https://steamcommunity.com/profiles/{{externalId}}"
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+
+  game     Game?     @relation(fields: [gameId], references: [id])
+  subjects Subject[]
+
+  @@index([gameId])
+  @@map("platforms")
+}
+
+// ─────────────────────────────────────────
+// VIOLATION TYPE  (config table)
+// Replaces: Tag + CaseTag + EvidenceType classification
+// ─────────────────────────────────────────
+
+model ViolationType {
+  id          String       @id @default(cuid())
+  gameId      String
+  name        String                              // "Aimbot"
+  slug        String                              // "aimbot"
+  description String?
+  severity    CasePriority @default(MEDIUM)       // reuses stable enum
+  color       String       @default("#6B7280")    // hex color for UI badge
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+
+  game  Game               @relation(fields: [gameId], references: [id])
+  cases CaseViolationType[]
+
+  @@unique([gameId, slug])
+  @@index([gameId])
+  @@map("violation_types")
+}
+
+// Join table: Case ↔ ViolationType
+model CaseViolationType {
+  caseId          String
+  violationTypeId String
+
+  case          Case          @relation(fields: [caseId],          references: [id], onDelete: Cascade)
+  violationType ViolationType @relation(fields: [violationTypeId], references: [id], onDelete: Cascade)
+
+  @@id([caseId, violationTypeId])
+  @@map("case_violation_types")
+}
+
+// ─────────────────────────────────────────
+// SANCTION TEMPLATE  (config table)
+// Replaces: VerdictOutcome enum
+// ─────────────────────────────────────────
+
+model SanctionTemplate {
+  id           String   @id @default(cuid())
+  gameId       String
+  name         String                       // "Permanent Hardware Ban"
+  slug         String                       // "permanent-hardware-ban"
+  description  String?
+  durationDays Int?                         // null = permanent
+  isAppealable Boolean  @default(true)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  game     Game      @relation(fields: [gameId], references: [id])
+  verdicts Verdict[]
+
+  @@unique([gameId, slug])
+  @@index([gameId])
+  @@map("sanction_templates")
+}
+
+// ─────────────────────────────────────────
+// INTEGRATION SOURCE  (config table)
+// Replaces: ReportSource enum
+// ─────────────────────────────────────────
+
+model IntegrationSource {
+  id         String   @id @default(cuid())
+  gameId     String
+  name       String                       // "Easy Anti-Cheat"
+  slug       String                       // "easy-anti-cheat"
+  webhookUrl String?
+  apiKeyHash String?                      // hashed — never store plaintext
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  game    Game     @relation(fields: [gameId], references: [id])
+  reports Report[]
+
+  @@unique([gameId, slug])
+  @@index([gameId])
+  @@map("integration_sources")
+}
+
+// ─────────────────────────────────────────
+// USER
+// ─────────────────────────────────────────
+
+model User {
+  id          String    @id @default(cuid())
+  email       String    @unique
+  displayName String
+  avatarUrl   String?
+  role        UserRole  @default(VIEWER)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  casesOpened   Case[]     @relation("CaseOpenedBy")
+  casesAssigned Case[]     @relation("CaseAssignedTo")
+  reports       Report[]
+  evidence      Evidence[]
+  notes         Note[]
+  verdicts      Verdict[]
+  auditLogs     AuditLog[]
+
+  @@index([email])
+  @@index([role])
+  @@index([isActive])
+  @@map("users")
+}
+
+// ─────────────────────────────────────────
+// CASE
+// ─────────────────────────────────────────
+
+model Case {
+  id           String       @id @default(cuid())
+  gameId       String
+  caseNumber   String       @unique
+  title        String
+  description  String?      @db.Text
+  status       CaseStatus   @default(OPEN)
+  priority     CasePriority @default(MEDIUM)
+  assignedToId String?
+  openedById   String
+  openedAt     DateTime     @default(now())
+  closedAt     DateTime?
+  metadata     Json?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  deletedAt    DateTime?
+
+  game       Game  @relation(fields: [gameId],       references: [id])
+  assignedTo User? @relation("CaseAssignedTo", fields: [assignedToId], references: [id])
+  openedBy   User  @relation("CaseOpenedBy",   fields: [openedById],   references: [id])
+
+  subjects        Subject[]
+  reports         Report[]
+  evidence        Evidence[]
+  notes           Note[]
+  verdict         Verdict?
+  violationTypes  CaseViolationType[]
+  auditLogs       AuditLog[]
+
+  @@index([gameId])
+  @@index([caseNumber])
+  @@index([status])
+  @@index([priority])
+  @@index([assignedToId])
+  @@index([openedById])
+  @@index([openedAt])
+  @@map("cases")
+}
+
+// ─────────────────────────────────────────
+// SUBJECT
+// ─────────────────────────────────────────
+
+model Subject {
   id          String   @id @default(cuid())
-  reportedBy  String
-  targetPlayer String
-  description String
-  status      String   @default("pending")
+  caseId      String
+  platformId  String
+  displayName String
+  externalId  String?                     // player ID on the external platform
+  profileUrl  String?                     // auto-built from Platform.profileUrlTemplate
+  metadata    Json?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  // TODO: relate to Case, Evidence
+  case     Case     @relation(fields: [caseId],     references: [id], onDelete: Cascade)
+  platform Platform @relation(fields: [platformId], references: [id])
+
+  @@index([caseId])
+  @@index([platformId])
+  @@index([externalId])
+  @@map("subjects")
 }
 
-// TODO: Define Evidence model
+// ─────────────────────────────────────────
+// REPORT
+// ─────────────────────────────────────────
+
+model Report {
+  id                  String    @id @default(cuid())
+  caseId              String
+  reportedById        String
+  integrationSourceId String?                        // null = entered manually
+  summary             String
+  detail              String?   @db.Text
+  incidentAt          DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  case              Case               @relation(fields: [caseId],              references: [id], onDelete: Cascade)
+  reportedBy        User               @relation(fields: [reportedById],        references: [id])
+  integrationSource IntegrationSource? @relation(fields: [integrationSourceId], references: [id])
+
+  @@index([caseId])
+  @@index([reportedById])
+  @@index([integrationSourceId])
+  @@index([incidentAt])
+  @@map("reports")
+}
+
+// ─────────────────────────────────────────
+// EVIDENCE
+// ─────────────────────────────────────────
+
 model Evidence {
-  id        String   @id @default(cuid())
-  type      String
-  url       String
-  createdAt DateTime @default(now())
+  id           String         @id @default(cuid())
+  caseId       String
+  uploadedById String
+  title        String
+  description  String?        @db.Text
+  evidenceType EvidenceType   @default(OTHER)
+  status       EvidenceStatus @default(PENDING_REVIEW)
+  metadata     Json?
+  capturedAt   DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  deletedAt    DateTime?
 
-  // TODO: relate to Report, Case
+  case        Case         @relation(fields: [caseId],       references: [id], onDelete: Cascade)
+  uploadedBy  User         @relation(fields: [uploadedById], references: [id])
+  attachments Attachment[]
+
+  @@index([caseId])
+  @@index([uploadedById])
+  @@index([evidenceType])
+  @@index([status])
+  @@map("evidence")
 }
 
-// TODO: Define Case model
-model Case {
-  id        String   @id @default(cuid())
-  status    String   @default("open")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// ─────────────────────────────────────────
+// ATTACHMENT
+// ─────────────────────────────────────────
 
-  // TODO: relate to Reports, Evidence, assigned User
+model Attachment {
+  id         String   @id @default(cuid())
+  evidenceId String?
+  noteId     String?
+  fileName   String
+  mimeType   String
+  sizeBytes  Int
+  storageKey String   @unique
+  storageUrl String
+  createdAt  DateTime @default(now())
+
+  evidence Evidence? @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+  note     Note?     @relation(fields: [noteId],     references: [id], onDelete: Cascade)
+
+  // Constraint: exactly one of evidenceId or noteId must be set.
+  // Enforce with a DB check constraint (see §8).
+
+  @@index([evidenceId])
+  @@index([noteId])
+  @@map("attachments")
 }
 
-// TODO: Define User model
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  role      String   @default("viewer")
-  createdAt DateTime @default(now())
+// ─────────────────────────────────────────
+// NOTE
+// ─────────────────────────────────────────
 
-  // TODO: add auth fields (passwordHash, etc.)
+model Note {
+  id         String         @id @default(cuid())
+  caseId     String
+  authorId   String
+  body       String         @db.Text
+  isPinned   Boolean        @default(false)
+  visibility NoteVisibility @default(INTERNAL)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  deletedAt  DateTime?
+
+  case        Case         @relation(fields: [caseId],   references: [id], onDelete: Cascade)
+  author      User         @relation(fields: [authorId], references: [id])
+  attachments Attachment[]
+
+  @@index([caseId])
+  @@index([authorId])
+  @@index([isPinned])
+  @@map("notes")
+}
+
+// ─────────────────────────────────────────
+// VERDICT
+// ─────────────────────────────────────────
+
+model Verdict {
+  id                 String   @id @default(cuid())
+  caseId             String   @unique
+  sanctionTemplateId String
+  renderedById       String
+  rationale          String   @db.Text
+  effectiveAt        DateTime @default(now())
+  expiresAt          DateTime?               // derived from SanctionTemplate.durationDays
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  case             Case             @relation(fields: [caseId],             references: [id], onDelete: Cascade)
+  sanctionTemplate SanctionTemplate @relation(fields: [sanctionTemplateId], references: [id])
+  renderedBy       User             @relation(fields: [renderedById],       references: [id])
+
+  @@index([caseId])
+  @@index([sanctionTemplateId])
+  @@index([effectiveAt])
+  @@map("verdicts")
+}
+
+// ─────────────────────────────────────────
+// AUDIT LOG
+// ─────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  caseId     String?
+  action     String
+  entityType String
+  entityId   String
+  before     Json?
+  after      Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  case  Case? @relation(fields: [caseId],  references: [id], onDelete: SetNull)
+
+  @@index([actorId])
+  @@index([caseId])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
 }
