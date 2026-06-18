@@ -31,9 +31,9 @@ The initial target use case is **Tom Clancy’s The Division 2**, but the platfo
 
 ## TODO
 
-- [ ] Configure PostgreSQL connection string in `backend/.env`
+- [x] Configure PostgreSQL connection string in `backend/.env`
 - [ ] Configure Redis connection in `backend/.env`
-- [ ] Run `npx prisma migrate dev` to apply initial schema
+- [x] Run `npx prisma migrate dev` to apply initial schema
 - [ ] Implement report ingestion logic in `backend/src/modules/reports/`
 - [ ] Implement evidence upload & storage in `backend/src/modules/evidence/`
 - [ ] Implement case management in `backend/src/modules/cases/`
