@@ -1,3 +1,20 @@
+<p align="center">
+  <img src="https://img.shields.io/badge/Status-In%20Development-blueviolet?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Backend-NestJS-red?style=for-the-badge&logo=nestjs" />
+  <img src="https://img.shields.io/badge/Database-PostgreSQL-336791?style=for-the-badge&logo=postgresql" />
+  <img src="https://img.shields.io/badge/ORM-Prisma-2D3748?style=for-the-badge&logo=prisma" />
+  <img src="https://img.shields.io/badge/Frontend-React-61DAFB?style=for-the-badge&logo=react" />
+  <img src="https://img.shields.io/badge/Language-TypeScript-3178C6?style=for-the-badge&logo=typescript" />
+  <img src="https://img.shields.io/badge/AI-Pipeline-orange?style=for-the-badge&logo=openai" />
+  <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" />
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/github/last-commit/Serk4/Cheater-Case-Intelligence-Platform?style=flat-square" />
+  <img src="https://img.shields.io/github/languages/top/Serk4/Cheater-Case-Intelligence-Platform?style=flat-square" />
+  <img src="https://img.shields.io/github/repo-size/Serk4/Cheater-Case-Intelligence-Platform?style=flat-square" />
+</p>
+
 # Cheater Case Intelligence Platform (CCIP)
 
 CCIP is designed to help studios manage the operational burden of reviewing cheating reports.  
