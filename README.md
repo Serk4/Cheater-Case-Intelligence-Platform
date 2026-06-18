@@ -31,18 +31,49 @@ The initial target use case is **Tom Clancy’s The Division 2**, but the platfo
 
 ## TODO
 
+### Backend Infrastructure
 - [x] Configure PostgreSQL connection string in `backend/.env`
 - [ ] Configure Redis connection in `backend/.env`
 - [x] Run `npx prisma migrate dev` to apply initial schema
-- [ ] Implement report ingestion logic in `backend/src/modules/reports/`
-- [ ] Implement evidence upload & storage in `backend/src/modules/evidence/`
-- [ ] Implement case management in `backend/src/modules/cases/`
-- [ ] Implement AI analysis pipeline in `backend/src/modules/ai/`
-- [ ] Implement user auth & roles in `backend/src/modules/users/`
-- [ ] Build Dashboard page in `frontend/src/pages/Dashboard.tsx`
-- [ ] Build Case View page in `frontend/src/pages/CaseView.tsx`
-- [ ] Build Report Intake form in `frontend/src/pages/ReportIntake.tsx`
-- [ ] Add authentication (JWT / OAuth) across backend + frontend
+- [x] Add full Prisma schema (v2.0.0) with all domain models
+- [x] Implement seed file for initial Game / Platform / ViolationType / SanctionTemplate / IntegrationSource data
+
+### Backend CRUD Modules (Completed)
+- [x] Game CRUD
+- [x] Platform CRUD
+- [x] ViolationType CRUD
+- [x] SanctionTemplate CRUD
+- [x] IntegrationSource CRUD
+- [x] Case CRUD
+- [x] Subject CRUD
+- [x] Report CRUD
+- [x] Evidence CRUD
+- [x] Note CRUD
+- [x] Verdict CRUD
+- [x] CaseViolationType CRUD (composite PK)
+- [x] AuditLog CRUD
+
+### Backend Logic (Next Steps)
+- [ ] Implement report ingestion logic (`backend/src/modules/reports/`)
+- [ ] Implement evidence upload & storage (`backend/src/modules/evidence/`)
+- [ ] Implement case workflow logic (status transitions, assignments)
+- [ ] Implement AI analysis pipeline (`backend/src/modules/ai/`)
+- [ ] Implement user authentication (JWT/OAuth)
+- [ ] Implement role-based access control (RBAC)
+- [ ] Add audit logging middleware
+- [ ] Add global exception filters + validation pipes
+- [ ] Add Swagger/OpenAPI documentation
+
+### Frontend
+- [ ] Build Dashboard page (`frontend/src/pages/Dashboard.tsx`)
+- [ ] Build Case View page (`frontend/src/pages/CaseView.tsx`)
+- [ ] Build Report Intake form (`frontend/src/pages/ReportIntake.tsx`)
+- [ ] Add authentication flow (login, logout, roles)
+- [ ] Integrate backend API with frontend pages
+
+### Testing
+- [ ] Add unit tests for backend modules
+- [ ] Add integration tests for API endpoints
 - [ ] Add end-to-end tests
 
 ## Roadmap
