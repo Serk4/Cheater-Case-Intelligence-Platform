@@ -1,33 +1,42 @@
-import { Controller, Get, Post, Patch, Body, Param } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+} from '@nestjs/common';
 import { CasesService } from './cases.service';
-
-// TODO: add DTOs, guards, status-transition logic
+import { CreateCaseDto } from './dto/create-case.dto';
+import { UpdateCaseDto } from './dto/update-case.dto';
 
 @Controller('cases')
 export class CasesController {
   constructor(private readonly casesService: CasesService) {}
 
-  // TODO: implement case listing with filters
   @Get()
   findAll() {
     return this.casesService.findAll();
   }
 
-  // TODO: implement case detail
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.casesService.findOne(id);
   }
 
-  // TODO: implement case creation (link reports/evidence)
   @Post()
-  create(@Body() body: unknown) {
-    return this.casesService.create(body);
+  create(@Body() dto: CreateCaseDto) {
+    return this.casesService.create(dto);
   }
 
-  // TODO: implement case status updates
   @Patch(':id')
-  update(@Param('id') id: string, @Body() body: unknown) {
-    return this.casesService.update(id, body);
+  update(@Param('id') id: string, @Body() dto: UpdateCaseDto) {
+    return this.casesService.update(id, dto);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.casesService.remove(id);
   }
 }

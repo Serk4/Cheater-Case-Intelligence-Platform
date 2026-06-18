@@ -1,26 +1,73 @@
 import { Injectable } from '@nestjs/common';
-
-// TODO: inject PrismaService, ReportsService, EvidenceService
+import { PrismaService } from '../../../prisma/prisma.service';
+import { CreateCaseDto } from './dto/create-case.dto';
+import { UpdateCaseDto } from './dto/update-case.dto';
 
 @Injectable()
 export class CasesService {
-  // TODO: implement findAll with pagination and status filters
+  constructor(private prisma: PrismaService) {}
+
   findAll() {
-    return [];
+    return this.prisma.case.findMany({
+      include: {
+        game: true,
+        assignedTo: true,
+        openedBy: true,
+        subjects: true,
+        reports: true,
+        evidence: true,
+        notes: true,
+        verdict: true,
+        violationTypes: true,
+        auditLogs: true,
+      },
+    });
   }
 
-  // TODO: implement findOne with related reports/evidence
   findOne(id: string) {
-    return { id };
+    return this.prisma.case.findUnique({
+      where: { id },
+      include: {
+        game: true,
+        assignedTo: true,
+        openedBy: true,
+        subjects: true,
+        reports: true,
+        evidence: true,
+        notes: true,
+        verdict: true,
+        violationTypes: true,
+        auditLogs: true,
+      },
+    });
   }
 
-  // TODO: create case, link reports and evidence
-  create(data: unknown) {
-    return { created: true, data };
+  create(data: CreateCaseDto) {
+    return this.prisma.case.create({
+      data,
+      include: {
+        game: true,
+        assignedTo: true,
+        openedBy: true,
+      },
+    });
   }
 
-  // TODO: implement status transitions with validation
-  update(id: string, data: unknown) {
-    return { id, updated: true, data };
+  update(id: string, data: UpdateCaseDto) {
+    return this.prisma.case.update({
+      where: { id },
+      data,
+      include: {
+        game: true,
+        assignedTo: true,
+        openedBy: true,
+      },
+    });
+  }
+
+  remove(id: string) {
+    return this.prisma.case.delete({
+      where: { id },
+    });
   }
 }

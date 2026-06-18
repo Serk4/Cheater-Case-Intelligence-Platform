@@ -1,27 +1,42 @@
-import { Controller, Get, Post, Body, Param } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+} from '@nestjs/common';
 import { EvidenceService } from './evidence.service';
-
-// TODO: add file upload support, DTOs, guards
+import { CreateEvidenceDto } from './dto/create-evidence.dto';
+import { UpdateEvidenceDto } from './dto/update-evidence.dto';
 
 @Controller('evidence')
 export class EvidenceController {
   constructor(private readonly evidenceService: EvidenceService) {}
 
-  // TODO: implement evidence listing with filters
   @Get()
   findAll() {
     return this.evidenceService.findAll();
   }
 
-  // TODO: implement evidence detail
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.evidenceService.findOne(id);
   }
 
-  // TODO: implement evidence upload (multipart form)
   @Post()
-  create(@Body() body: unknown) {
-    return this.evidenceService.create(body);
+  create(@Body() dto: CreateEvidenceDto) {
+    return this.evidenceService.create(dto);
+  }
+
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() dto: UpdateEvidenceDto) {
+    return this.evidenceService.update(id, dto);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.evidenceService.remove(id);
   }
 }

@@ -1,27 +1,42 @@
-import { Controller, Get, Post, Body, Param } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+} from '@nestjs/common';
 import { ReportsService } from './reports.service';
-
-// TODO: add DTOs, guards, pagination
+import { CreateReportDto } from './dto/create-report.dto';
+import { UpdateReportDto } from './dto/update-report.dto';
 
 @Controller('reports')
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
-  // TODO: implement report listing with filters
   @Get()
   findAll() {
     return this.reportsService.findAll();
   }
 
-  // TODO: implement report detail
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.reportsService.findOne(id);
   }
 
-  // TODO: implement report creation with validation
   @Post()
-  create(@Body() body: unknown) {
-    return this.reportsService.create(body);
+  create(@Body() dto: CreateReportDto) {
+    return this.reportsService.create(dto);
+  }
+
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() dto: UpdateReportDto) {
+    return this.reportsService.update(id, dto);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.reportsService.remove(id);
   }
 }

@@ -1,21 +1,38 @@
 import { Injectable } from '@nestjs/common';
-
-// TODO: inject PrismaService, add password hashing, JWT integration
+import { PrismaService } from '../../../prisma/prisma.service';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class UsersService {
-  // TODO: implement findAll (admin-only) with pagination
+  constructor(private prisma: PrismaService) {}
+
   findAll() {
-    return [];
+    return this.prisma.user.findMany();
   }
 
-  // TODO: implement findOne with 404 handling
   findOne(id: string) {
-    return { id };
+    return this.prisma.user.findUnique({
+      where: { id },
+    });
   }
 
-  // TODO: hash password, persist user, return safe response
-  create(data: unknown) {
-    return { created: true, data };
+  create(data: CreateUserDto) {
+    return this.prisma.user.create({
+      data,
+    });
+  }
+
+  update(id: string, data: UpdateUserDto) {
+    return this.prisma.user.update({
+      where: { id },
+      data,
+    });
+  }
+
+  remove(id: string) {
+    return this.prisma.user.delete({
+      where: { id },
+    });
   }
 }

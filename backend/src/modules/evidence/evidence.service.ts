@@ -1,21 +1,57 @@
 import { Injectable } from '@nestjs/common';
-
-// TODO: inject PrismaService and a storage provider (S3 / local disk)
+import { PrismaService } from '../../../prisma/prisma.service';
+import { CreateEvidenceDto } from './dto/create-evidence.dto';
+import { UpdateEvidenceDto } from './dto/update-evidence.dto';
 
 @Injectable()
 export class EvidenceService {
-  // TODO: implement findAll with pagination and type filters
+  constructor(private prisma: PrismaService) {}
+
   findAll() {
-    return [];
+    return this.prisma.evidence.findMany({
+      include: {
+        case: true,
+        uploadedBy: true,
+        attachments: true,
+      },
+    });
   }
 
-  // TODO: implement findOne with 404 handling
   findOne(id: string) {
-    return { id };
+    return this.prisma.evidence.findUnique({
+      where: { id },
+      include: {
+        case: true,
+        uploadedBy: true,
+        attachments: true,
+      },
+    });
   }
 
-  // TODO: handle file upload, persist metadata to DB
-  create(data: unknown) {
-    return { created: true, data };
+  create(data: CreateEvidenceDto) {
+    return this.prisma.evidence.create({
+      data,
+      include: {
+        case: true,
+        uploadedBy: true,
+      },
+    });
+  }
+
+  update(id: string, data: UpdateEvidenceDto) {
+    return this.prisma.evidence.update({
+      where: { id },
+      data,
+      include: {
+        case: true,
+        uploadedBy: true,
+      },
+    });
+  }
+
+  remove(id: string) {
+    return this.prisma.evidence.delete({
+      where: { id },
+    });
   }
 }

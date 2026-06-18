@@ -1,21 +1,59 @@
 import { Injectable } from '@nestjs/common';
-
-// TODO: inject PrismaService and implement real DB queries
+import { PrismaService } from '../../../prisma/prisma.service';
+import { CreateReportDto } from './dto/create-report.dto';
+import { UpdateReportDto } from './dto/update-report.dto';
 
 @Injectable()
 export class ReportsService {
-  // TODO: implement findAll with pagination and status filters
+  constructor(private prisma: PrismaService) {}
+
   findAll() {
-    return [];
+    return this.prisma.report.findMany({
+      include: {
+        case: true,
+        reportedBy: true,
+        integrationSource: true,
+      },
+    });
   }
 
-  // TODO: implement findOne with 404 handling
   findOne(id: string) {
-    return { id };
+    return this.prisma.report.findUnique({
+      where: { id },
+      include: {
+        case: true,
+        reportedBy: true,
+        integrationSource: true,
+      },
+    });
   }
 
-  // TODO: validate DTO, persist to DB, emit event
-  create(data: unknown) {
-    return { created: true, data };
+  create(data: CreateReportDto) {
+    return this.prisma.report.create({
+      data,
+      include: {
+        case: true,
+        reportedBy: true,
+        integrationSource: true,
+      },
+    });
+  }
+
+  update(id: string, data: UpdateReportDto) {
+    return this.prisma.report.update({
+      where: { id },
+      data,
+      include: {
+        case: true,
+        reportedBy: true,
+        integrationSource: true,
+      },
+    });
+  }
+
+  remove(id: string) {
+    return this.prisma.report.delete({
+      where: { id },
+    });
   }
 }
