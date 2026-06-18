@@ -71,7 +71,7 @@ The initial target use case is **Tom Clancy’s The Division 2**, but the platfo
 - [x] AuditLog CRUD
 
 ### Backend Logic (Next Steps)
-- [ ] Implement report ingestion logic (`backend/src/modules/reports/`)
+- [x] Implement report ingestion logic (`backend/src/modules/reports/`)
 - [ ] Implement evidence upload & storage (`backend/src/modules/evidence/`)
 - [ ] Implement case workflow logic (status transitions, assignments)
 - [ ] Implement AI analysis pipeline (`backend/src/modules/ai/`)
