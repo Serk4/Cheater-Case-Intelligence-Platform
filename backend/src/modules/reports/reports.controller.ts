@@ -10,6 +10,7 @@ import {
 import { ReportsService } from './reports.service';
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
+import { ReportIngestionDto } from './dto/report-ingestion.dto';
 
 @Controller('reports')
 export class ReportsController {
@@ -28,6 +29,11 @@ export class ReportsController {
   @Post()
   create(@Body() dto: CreateReportDto) {
     return this.reportsService.create(dto);
+  }
+
+  @Post('ingest')
+  ingest(@Body() dto: ReportIngestionDto) {
+    return this.reportsService.ingestFromIntegration(dto);
   }
 
   @Patch(':id')

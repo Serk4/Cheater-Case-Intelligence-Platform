@@ -26,7 +26,7 @@ async function main() {
   // -----------------------------------------------------
   // 2. USER — Basic analyst account
   // -----------------------------------------------------
-  const user = await prisma.user.create({
+  const analyst = await prisma.user.create({
     data: {
       email: 'analyst@example.com',
       displayName: 'Analyst One',
@@ -34,7 +34,7 @@ async function main() {
     },
   });
 
-  console.log('Created User:', user.email);
+  console.log('Created User:', analyst.email);
 
   // -----------------------------------------------------
   // 3. PLATFORM — Xbox Live
@@ -129,6 +129,63 @@ async function main() {
 
   console.log('Created Integration Source:', integrationSource.slug);
 
+  // -----------------------------------------------------
+  // 7. System User (for internal processes, not human login)
+  // -----------------------------------------------------
+  const systemIngestUser = await prisma.user.upsert({
+    where: { email: 'system-ingest@ccip.local' },
+    update: {},
+    create: {
+      email: 'system-ingest@ccip.local',
+      displayName: 'System Report Ingest',
+      role: 'ANALYST',
+    },
+  });
+  console.log('Created System-Ingest User:', systemIngestUser.email);
+
+  // ------------------------------------------------------
+  // 8. Test Case for Ingestion Testing
+  // ------------------------------------------------------
+  const testCase = await prisma.case.create({
+    data: {
+      gameId: game.id,
+      caseNumber: 'TEST-CASE-001',
+      title: 'Test Case: Player suspected of cheating',
+      status: 'OPEN',
+      priority: 'MEDIUM',
+      openedById: analyst.id, // your analyst user
+    },
+  });
+  console.log('Created Test Case:', testCase.id);
+
+  // ------------------------------------------------------
+  // 9. Test Accused Subject (the accused player in the test case)
+  // ------------------------------------------------------
+  const accusedSubject = await prisma.subject.create({
+    data: {
+      caseId: testCase.id,
+      platformId: xbox.id,
+      displayName: 'AccusedPlayer123',
+      externalId: 'ACCUSED-PLAYER-123',
+    },
+  });
+  console.log('Created Accused Subject:', accusedSubject.displayName);
+
+  // ------------------------------------------------------
+  // 10. Test Reporter Player
+  // ------------------------------------------------------
+  const reportingSubject = await prisma.subject.create({
+    data: {
+      caseId: testCase.id,
+      platformId: xbox.id,
+      displayName: 'HelpfulPlayer456',
+      externalId: 'HELPFUL-PLAYER-456',
+    },
+  });
+  console.log('Created Reporting Subject:', reportingSubject.displayName);
+
+
+  // Complete seeding
   console.log('🌱 Seed completed successfully.');
 }
 
