@@ -293,13 +293,12 @@ erDiagram
 ```prisma
 // ============================================================
 // CCIP — Prisma Schema
-// Database: PostgreSQL 15+
-// Version:  2.0.0 — extensible, game-agnostic
+// Database: PostgreSQL 18
+// Version:  2.0.1 — extensible, game-agnostic
 // ============================================================
 
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["fullTextSearch", "fullTextIndex"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -1123,115 +1122,205 @@ This is the **primary customization layer** for any studio picking up CCIP. Edit
 // Run: npx prisma db seed
 // ─────────────────────────────────────────────────────────────
 
-import { PrismaClient, CasePriority } from "@prisma/client";
+import { PrismaClient } from '@prisma/client';
+
 const prisma = new PrismaClient();
 
 async function main() {
+  console.log('🌱 Seeding database...');
 
-  // ── 1. GAME ───────────────────────────────────────────────
-  const game = await prisma.game.upsert({
-    where:  { slug: "my-game" },
-    update: {},
-    create: { name: "My Game", slug: "my-game" },
-  });
-
-  // ── 2. PLATFORMS ──────────────────────────────────────────
-  // Add or remove platforms your game supports.
-  // profileUrlTemplate uses {{externalId}} as a placeholder.
-  await prisma.platform.createMany({
-    skipDuplicates: true,
-    data: [
-      {
-        name:                "Steam",
-        slug:                "steam",
-        profileUrlTemplate:  "https://steamcommunity.com/profiles/{{externalId}}",
+  // -----------------------------------------------------
+  // 1. GAME — The Division 2
+  // -----------------------------------------------------
+  const game = await prisma.game.create({
+    data: {
+      name: 'The Division 2',
+      slug: 'the-division-2',
+      logoUrl: 'https://example.com/logos/td2.png',
+      metadata: {
+        publisher: 'Ubisoft',
+        engine: 'Snowdrop',
+        regionSupport: ['NA', 'EU', 'APAC'],
       },
-      {
-        name:                "Xbox Live",
-        slug:                "xbox-live",
-        profileUrlTemplate:  "https://account.xbox.com/profile?gamertag={{externalId}}",
-      },
-      {
-        name:                "PlayStation Network",
-        slug:                "psn",
-        profileUrlTemplate:  "https://my.playstation.com/profile/{{externalId}}",
-      },
-      {
-        gameId:              game.id,          // game-specific platform
-        name:                "My Game Launcher",
-        slug:                "my-game-launcher",
-        profileUrlTemplate:  "https://mygame.com/players/{{externalId}}",
-      },
-    ],
-  });
-
-  // ── 3. VIOLATION TYPES ────────────────────────────────────
-  // Define every cheat/rule-break category for your game.
-  // severity maps to CasePriority and auto-sets new case priority.
-  await prisma.violationType.createMany({
-    skipDuplicates: true,
-    data: [
-      { gameId: game.id, name: "Aimbot",              slug: "aimbot",              severity: CasePriority.CRITICAL, color: "#DC2626" },
-      { gameId: game.id, name: "Wallhack",             slug: "wallhack",            severity: CasePriority.HIGH,     color: "#EA580C" },
-      { gameId: game.id, name: "Speed Hack",           slug: "speed-hack",          severity: CasePriority.HIGH,     color: "#EA580C" },
-      { gameId: game.id, name: "Radar Hack",           slug: "radar-hack",          severity: CasePriority.HIGH,     color: "#EA580C" },
-      { gameId: game.id, name: "Macro / Script Abuse", slug: "macro-script",        severity: CasePriority.MEDIUM,   color: "#CA8A04" },
-      { gameId: game.id, name: "Account Sharing",      slug: "account-sharing",     severity: CasePriority.MEDIUM,   color: "#CA8A04" },
-      { gameId: game.id, name: "Boosting",             slug: "boosting",            severity: CasePriority.LOW,      color: "#65A30D" },
-      { gameId: game.id, name: "Smurfing",             slug: "smurfing",            severity: CasePriority.LOW,      color: "#65A30D" },
-      { gameId: game.id, name: "Toxic Behaviour",      slug: "toxic-behaviour",     severity: CasePriority.LOW,      color: "#6B7280" },
-      { gameId: game.id, name: "Exploit Abuse",        slug: "exploit-abuse",       severity: CasePriority.MEDIUM,   color: "#CA8A04" },
-    ],
-  });
-
-  // ── 4. SANCTION TEMPLATES ─────────────────────────────────
-  // Define every penalty your game uses.
-  // durationDays: null = permanent, any int = timed ban.
-  await prisma.sanctionTemplate.createMany({
-    skipDuplicates: true,
-    data: [
-      { gameId: game.id, name: "Formal Warning",         slug: "warning",           durationDays: null, isAppealable: true  },
-      { gameId: game.id, name: "7-Day Suspension",       slug: "ban-7d",            durationDays: 7,    isAppealable: true  },
-      { gameId: game.id, name: "30-Day Suspension",      slug: "ban-30d",           durationDays: 30,   isAppealable: true  },
-      { gameId: game.id, name: "Permanent Ban",          slug: "ban-permanent",     durationDays: null, isAppealable: false },
-      { gameId: game.id, name: "Permanent Hardware Ban", slug: "ban-hardware",      durationDays: null, isAppealable: false },
-      { gameId: game.id, name: "Rank Reset",             slug: "rank-reset",        durationDays: null, isAppealable: true  },
-      { gameId: game.id, name: "Competitive Cooldown",   slug: "competitive-cooldown", durationDays: 14, isAppealable: false },
-      { gameId: game.id, name: "Case Dismissed",         slug: "dismissed",         durationDays: null, isAppealable: false },
-    ],
-  });
-
-  // ── 5. INTEGRATION SOURCES ────────────────────────────────
-  // Register every external system that sends reports to CCIP.
-  // Omit fields your game doesn't use.
-  await prisma.integrationSource.createMany({
-    skipDuplicates: true,
-    data: [
-      { gameId: game.id, name: "Easy Anti-Cheat",   slug: "easy-anti-cheat" },
-      { gameId: game.id, name: "VAC",                slug: "vac"             },
-      { gameId: game.id, name: "BattlEye",           slug: "battleye"        },
-      { gameId: game.id, name: "Community Tip Form", slug: "community-tip"   },
-      { gameId: game.id, name: "ML Detection Pipeline", slug: "ml-pipeline"  },
-    ],
-  });
-
-  // ── 6. ADMIN USER ─────────────────────────────────────────
-  await prisma.user.upsert({
-    where:  { email: "admin@yourstudio.com" },
-    update: {},
-    create: {
-      email:       "admin@yourstudio.com",
-      displayName: "Studio Admin",
-      role:        "ADMIN",
     },
   });
 
-  console.log("✅ CCIP seed complete.");
+  console.log('Created Game:', game.slug);
+
+  // -----------------------------------------------------
+  // 2. USER — Basic analyst account
+  // -----------------------------------------------------
+  const analyst = await prisma.user.create({
+    data: {
+      email: 'analyst@example.com',
+      displayName: 'Analyst One',
+      role: 'ANALYST',
+    },
+  });
+
+  console.log('Created User:', analyst.email);
+
+  // -----------------------------------------------------
+  // 3. PLATFORM — Xbox Live
+  // -----------------------------------------------------
+  const xbox = await prisma.platform.create({
+    data: {
+      gameId: game.id,
+      name: 'Xbox Live',
+      slug: 'xbox-live',
+      profileUrlTemplate:
+        'https://account.xbox.com/en-us/profile?gamertag={{externalId}}',
+    },
+  });
+
+  console.log('Created Platform:', xbox.slug);
+
+  // -----------------------------------------------------
+  // 4. VIOLATION TYPES (3)
+  // -----------------------------------------------------
+  const violationTypes = await prisma.violationType.createMany({
+    data: [
+      {
+        gameId: game.id,
+        name: 'Aimbot',
+        slug: 'aimbot',
+        description: 'Automated aiming assistance.',
+        severity: 'HIGH',
+      },
+      {
+        gameId: game.id,
+        name: 'Wallhack',
+        slug: 'wallhack',
+        description: 'Seeing players through walls.',
+        severity: 'MEDIUM',
+      },
+      {
+        gameId: game.id,
+        name: 'Exploiting',
+        slug: 'exploiting',
+        description: 'Abusing unintended game mechanics.',
+        severity: 'LOW',
+      },
+    ],
+  });
+
+  console.log('Created Violation Types:', violationTypes.count);
+
+  // -----------------------------------------------------
+  // 5. SANCTION TEMPLATES (3)
+  // -----------------------------------------------------
+  const sanctionTemplates = await prisma.sanctionTemplate.createMany({
+    data: [
+      {
+        gameId: game.id,
+        name: 'Permanent Ban',
+        slug: 'permanent-ban',
+        description: 'Permanent account ban.',
+        durationDays: null,
+        isAppealable: false,
+      },
+      {
+        gameId: game.id,
+        name: '7-Day Suspension',
+        slug: '7-day-suspension',
+        description: 'Temporary suspension for moderate violations.',
+        durationDays: 7,
+      },
+      {
+        gameId: game.id,
+        name: 'Warning',
+        slug: 'warning',
+        description: 'Non-punitive warning for minor issues.',
+        durationDays: 0,
+      },
+    ],
+  });
+
+  console.log('Created Sanction Templates:', sanctionTemplates.count);
+
+  // -----------------------------------------------------
+  // 6. INTEGRATION SOURCE
+  // -----------------------------------------------------
+  const integrationSource = await prisma.integrationSource.create({
+    data: {
+      gameId: game.id,
+      name: 'In-Game Report System',
+      slug: 'in-game-report',
+      webhookUrl: null,
+      apiKeyHash: null,
+    },
+  });
+
+  console.log('Created Integration Source:', integrationSource.slug);
+
+  // -----------------------------------------------------
+  // 7. System User (for internal processes, not human login)
+  // -----------------------------------------------------
+  const systemIngestUser = await prisma.user.upsert({
+    where: { email: 'system-ingest@ccip.local' },
+    update: {},
+    create: {
+      email: 'system-ingest@ccip.local',
+      displayName: 'System Report Ingest',
+      role: 'ANALYST',
+    },
+  });
+  console.log('Created System-Ingest User:', systemIngestUser.email);
+
+  // ------------------------------------------------------
+  // 8. Test Case for Ingestion Testing
+  // ------------------------------------------------------
+  const testCase = await prisma.case.create({
+    data: {
+      gameId: game.id,
+      caseNumber: 'TEST-CASE-001',
+      title: 'Test Case: Player suspected of cheating',
+      status: 'OPEN',
+      priority: 'MEDIUM',
+      openedById: analyst.id, // your analyst user
+    },
+  });
+  console.log('Created Test Case:', testCase.id);
+
+  // ------------------------------------------------------
+  // 9. Test Accused Subject (the accused player in the test case)
+  // ------------------------------------------------------
+  const accusedSubject = await prisma.subject.create({
+    data: {
+      caseId: testCase.id,
+      platformId: xbox.id,
+      displayName: 'AccusedPlayer123',
+      externalId: 'ACCUSED-PLAYER-123',
+    },
+  });
+  console.log('Created Accused Subject:', accusedSubject.displayName);
+
+  // ------------------------------------------------------
+  // 10. Test Reporter Player
+  // ------------------------------------------------------
+  const reportingSubject = await prisma.subject.create({
+    data: {
+      caseId: testCase.id,
+      platformId: xbox.id,
+      displayName: 'HelpfulPlayer456',
+      externalId: 'HELPFUL-PLAYER-456',
+    },
+  });
+  console.log('Created Reporting Subject:', reportingSubject.displayName);
+
+
+  // Complete seeding
+  console.log('🌱 Seed completed successfully.');
 }
 
 main()
-  .catch(console.error)
-  .finally(() => prisma.$disconnect());
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
 ```
 
 ---
