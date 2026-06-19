@@ -2,6 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CreateCaseDto } from './dto/create-case.dto';
 import { UpdateCaseDto } from './dto/update-case.dto';
+import { CaseListQueryDto } from './dto/case-list.query.dto';
+import { CreateNoteDto } from './dto/create-note.dto';
+import { CreateEvidenceDto } from './dto/create-evidence.dto';
+import { Express } from 'express';
 
 @Injectable()
 export class CasesService {
@@ -70,4 +74,266 @@ export class CasesService {
       where: { id },
     });
   }
+
+  async getCaseById(id: string) {
+    const caseRecord = await this.prisma.case.findUniqueOrThrow({
+      where: { id },
+      include: {
+        game: true,
+        openedBy: true,
+        assignedTo: true,
+
+        subjects: {
+          include: { platform: true },
+        },
+
+        reports: {
+          include: {
+            reportedBy: true,
+            integrationSource: true,
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+
+        evidence: {
+          include: {
+            uploadedBy: true,
+            attachments: true,
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+
+        notes: {
+          include: {
+            author: true,
+            attachments: true,
+          },
+          orderBy: [
+            { isPinned: 'desc' },
+            { createdAt: 'asc' },
+          ],
+        },
+
+        verdict: {
+          include: {
+            sanctionTemplate: true,
+            renderedBy: true,
+          },
+        },
+
+        violationTypes: {
+          include: {
+            violationType: true,
+          },
+        },
+      },
+    });
+
+    // Flatten join table
+    const violationTypes = caseRecord.violationTypes.map(v => v.violationType);
+
+    return {
+      ...caseRecord,
+      violationTypes,
+    };
+  }
+
+  async getCaseSubjects(caseId: string) {
+    return this.prisma.subject.findMany({
+      where: { caseId },
+      include: { platform: true },
+    });
+  }
+
+  async getCaseReports(caseId: string) {
+    return this.prisma.report.findMany({
+      where: { caseId },
+      include: {
+        reportedBy: true,
+        integrationSource: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async getCaseEvidence(caseId: string) {
+    return this.prisma.evidence.findMany({
+      where: { caseId },
+      include: {
+        uploadedBy: true,
+        attachments: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async getCaseNotes(caseId: string) {
+    return this.prisma.note.findMany({
+      where: { caseId },
+      include: {
+        author: true,
+        attachments: true,
+      },
+      orderBy: [
+        { isPinned: 'desc' },
+        { createdAt: 'asc' },
+      ],
+    });
+  }
+
+  async getCaseVerdict(caseId: string) {
+    return this.prisma.verdict.findUnique({
+      where: { caseId },
+      include: {
+        sanctionTemplate: true,
+        renderedBy: true,
+      },
+    });
+  }
+
+  async listCases(query: CaseListQueryDto) {
+    const {
+      status,
+      priority,
+      assignedToId,
+      openedFrom,
+      openedTo,
+      sortBy = 'openedAt',
+      sortDir = 'desc',
+      page = 1,
+      pageSize = 20,
+    } = query;
+
+    const where: any = {};
+
+    if (status) where.status = status;
+    if (priority) where.priority = priority;
+    if (assignedToId) where.assignedToId = assignedToId;
+
+    if (openedFrom || openedTo) {
+      where.openedAt = {};
+      if (openedFrom) where.openedAt.gte = openedFrom;
+      if (openedTo) where.openedAt.lte = openedTo;
+    }
+
+    const total = await this.prisma.case.count({ where });
+
+    const data = await this.prisma.case.findMany({
+      where,
+      include: {
+        openedBy: true,
+        assignedTo: true,
+      },
+      orderBy: {
+        [sortBy]: sortDir,
+      },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    });
+
+    return {
+      data,
+      total,
+      page,
+      pageSize,
+    };
+  }
+
+  async createNote(dto: CreateNoteDto) {
+    const { caseId, authorId, body, visibility, isPinned } = dto;
+
+    // Ensure case exists
+    await this.prisma.case.findUniqueOrThrow({
+      where: { id: caseId },
+    });
+
+    // Ensure author exists
+    await this.prisma.user.findUniqueOrThrow({
+      where: { id: authorId },
+    });
+
+    const existingNotes = await this.prisma.note.count({ where: { caseId } });
+
+    const note = await this.prisma.note.create({
+        data: {
+          caseId,
+          authorId,
+          body,
+          visibility: visibility ?? 'INTERNAL',
+          isPinned: existingNotes === 0 ? true : isPinned ?? false, // Auto-pin if it's the first note
+        },
+        include: {
+          author: true,
+          attachments: true,
+        },
+      });
+
+      return note;
+  }
+
+  async softDeleteNote(id: string) {
+    return this.prisma.note.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+  }
+
+  async createEvidence(dto: CreateEvidenceDto, file: Express.Multer.File) {
+    const {
+      caseId,
+      uploadedById,
+      title,
+      description,
+      evidenceType,
+      metadata,
+      capturedAt,
+    } = dto;
+
+    if (!file) {
+      throw new Error('File upload is required.');
+    }
+
+    // Ensure case exists
+    await this.prisma.case.findUniqueOrThrow({
+      where: { id: caseId },
+    });
+
+    // Ensure user exists
+    await this.prisma.user.findUniqueOrThrow({
+      where: { id: uploadedById },
+    });
+
+    // Create Evidence
+    const evidence = await this.prisma.evidence.create({
+      data: {
+        caseId,
+        uploadedById,
+        title,
+        description,
+        evidenceType: evidenceType ?? 'OTHER',
+        metadata,
+        capturedAt: capturedAt ? new Date(capturedAt) : null,
+      },
+    });
+
+    // Create Attachment record
+    const attachment = await this.prisma.attachment.create({
+      data: {
+        evidenceId: evidence.id,
+        fileName: file.originalname,
+        mimeType: file.mimetype,
+        sizeBytes: file.size,
+        storageKey: `evidence/${evidence.id}/${file.originalname}`,
+        storageUrl: `/uploads/evidence/${evidence.id}/${file.originalname}`,
+      },
+    });
+
+    return {
+      ...evidence,
+      attachments: [attachment],
+    };
+  }
+
+
+
 }
