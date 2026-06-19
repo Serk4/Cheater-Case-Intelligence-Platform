@@ -72,6 +72,7 @@ Game  ←── the top-level tenant (one per title, or shared across a studio's
 
 ```mermaid
 erDiagram
+
     GAME {
         string id PK
         string name
@@ -98,7 +99,7 @@ erDiagram
         string name
         string slug
         string description
-        string severity
+        CasePriority severity
         string color
         boolean isActive
         datetime createdAt
@@ -134,10 +135,10 @@ erDiagram
 
     USER {
         string id PK
-        string email
+        string email UK
         string displayName
         string avatarUrl
-        string role
+        UserRole role
         boolean isActive
         datetime createdAt
         datetime updatedAt
@@ -150,8 +151,8 @@ erDiagram
         string caseNumber UK
         string title
         string description
-        string status
-        string priority
+        CaseStatus status
+        CasePriority priority
         string assignedToId FK
         string openedById FK
         datetime openedAt
@@ -192,8 +193,8 @@ erDiagram
         string uploadedById FK
         string title
         string description
-        string evidenceType
-        string status
+        EvidenceType evidenceType
+        EvidenceStatus status
         json metadata
         datetime capturedAt
         datetime createdAt
@@ -208,7 +209,7 @@ erDiagram
         string fileName
         string mimeType
         int sizeBytes
-        string storageKey
+        string storageKey UK
         string storageUrl
         datetime createdAt
     }
@@ -219,7 +220,7 @@ erDiagram
         string authorId FK
         string body
         boolean isPinned
-        string visibility
+        NoteVisibility visibility
         datetime createdAt
         datetime updatedAt
         datetime deletedAt
@@ -264,7 +265,7 @@ erDiagram
 
     INTEGRATION_SOURCE ||--o{ REPORT : "sources"
 
-    SANCTION_TEMPLATE ||--o{ VERDICT : "applied by"
+    SANCTION_TEMPLATE ||--o{ VERDICT : "applies"
 
     USER ||--o{ CASE : "opens"
     USER ||--o{ CASE : "assigned to"
