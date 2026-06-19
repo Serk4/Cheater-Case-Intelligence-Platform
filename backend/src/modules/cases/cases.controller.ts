@@ -18,6 +18,7 @@ import { UploadedFile, UseInterceptors, BadRequestException } from '@nestjs/comm
 import { CreateEvidenceDto } from './dto/create-evidence.dto';
 import { Express } from 'express';
 import * as path from 'path';
+import { Req } from '@nestjs/common';
 
 
 @Controller('cases')
@@ -61,8 +62,19 @@ export class CasesController {
 
         callback(null, true);
       },
-    }),
+    })
   )
+
+  async createEvidence(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() dto: CreateEvidenceDto,
+    @Req() req: any,
+  ) {
+      console.log('CONTENT-TYPE:', req.headers['content-type']);
+      console.log('Received file:', file);
+      console.log('DTO:', dto);
+      return this.casesService.createEvidence(dto, file);
+  }
 
   @Get()
   findAll() {
@@ -133,14 +145,4 @@ export class CasesController {
   async deleteNote(@Param('id') id: string) {
     return this.casesService.softDeleteNote(id);
   }
-
-  async createEvidence(
-    @UploadedFile() file: Express.Multer.File,
-    @Body() dto: CreateEvidenceDto,
-  ) {
-    return this.casesService.createEvidence(dto, file);
-  }
-
-
-
 }
