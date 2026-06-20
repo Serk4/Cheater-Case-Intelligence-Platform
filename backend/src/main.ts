@@ -1,47 +1,38 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
-import { join } from 'path';
-import { NestExpressApplication } from '@nestjs/platform-express';
-import * as express from 'express';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
-    bodyParser: false, // you explicitly want this for file uploads
-  });
+  const app = await NestFactory.create(AppModule);
 
-  // Restore JSON parsing (since bodyParser: false disables it)
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
-
-  // ⭐ Serve uploaded files
-  // This exposes: http://localhost:3000/uploads/<filename>
-  app.useStaticAssets(join(process.cwd(), 'uploads'), {
-    prefix: '/uploads',
-  });
-
-
-  // ⭐ Global validation (DTOs, pipes)
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true,          // strips unknown fields
-      forbidNonWhitelisted: false,
-      transform: true,          // auto-transform payloads to DTO classes
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
     }),
   );
 
-  // ⭐ CORS
   app.enableCors({
     origin: 'http://localhost:5173',
-    methods: 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
-    allowedHeaders: 'Content-Type, Authorization',
     credentials: true,
   });
 
-  const port = process.env.PORT ?? 3000;
-  await app.listen(port);
+  // Swagger
+  const config = new DocumentBuilder()
+    .setTitle('CCIP - Cheater Case Intelligence Platform')
+    .setDescription('Triage and evidence-analysis platform for player-reported cheating')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
 
-  console.log(`CCIP backend running on port ${port}`);
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api', app, document);
+
+  await app.listen(3000);
+  console.log(`🚀 CCIP Backend running on http://localhost:3000`);
+  console.log(`📄 Swagger UI: http://localhost:3000/api`);
 }
 
 bootstrap();
