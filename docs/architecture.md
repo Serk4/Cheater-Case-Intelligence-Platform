@@ -1,193 +1,222 @@
-# Architecture Overview  
-Cheater Case Intelligence Platform (CCIP)
+# Architecture Overview
 
-CCIP is a modular, service‑oriented platform designed to ingest player‑submitted cheating reports, analyze evidence, correlate related incidents, and present structured cases for human review. The system is intentionally game‑agnostic and reusable across multiple online titles.
+Cheater Case Intelligence Platform (CCIP) is currently implemented as a TypeScript monorepo with:
 
----
+- a NestJS backend in `/home/runner/work/Cheater-Case-Intelligence-Platform/Cheater-Case-Intelligence-Platform/backend`
+- a React + Vite frontend in `/home/runner/work/Cheater-Case-Intelligence-Platform/Cheater-Case-Intelligence-Platform/frontend`
+- Prisma as the backend data access layer
 
-## High-Level Architecture
-
-The platform consists of three major layers:
-
-### **1. Frontend (React + Vite + MUI)**
-- Dashboard for triage and case overview  
-- Case Viewer for evidence review and AI summaries  
-- Report Intake form  
-- Authentication and role-based access control  
-
-### **2. Backend (NestJS)**
-Organized into domain-driven modules:
-
-- **Reports Module**  
-  Handles report ingestion, validation, and normalization.
-
-- **Evidence Module**  
-  Manages uploads, metadata extraction, and storage.
-
-- **Cases Module**  
-  Correlates related reports, computes confidence scores, and manages case lifecycle.
-
-- **AI Module**  
-  Performs summarization, anomaly detection, and clustering.
-
-- **Users Module**  
-  Provides authentication, authorization, and audit logging.
-
-### **3. Data Layer**
-- **PostgreSQL** — primary relational database  
-- **Redis** — queues for async processing and caching  
-- **Object Storage** — video evidence, screenshots, thumbnails  
+This document reflects the code that exists today, not the long-term target architecture.
 
 ---
 
-## System Diagram (Text-Based)
+## Current High-Level Shape
 
-The following diagram shows how the frontend, backend, and data layers interact:
+```text
+[ React + Vite frontend ]
+  - App shell with left-nav routing
+  - Dashboard page shell
+  - Cases list page
+  - Case detail page
+  - Report intake page shell
+            |
+            v
+[ NestJS API ]
+  - CRUD modules for most schema models
+  - Case aggregate/detail endpoints
+  - Report ingestion endpoint
+  - Note creation + soft delete flow
+  - Evidence upload metadata flow
+            |
+            v
+[ PostgreSQL via Prisma ]
+  - Core case-management schema
+  - Seeded single-case example dataset
 
-```md
-[ Frontend (React) ]
-- Dashboard
-- Case Viewer
-- Report Intake
-- Auth UI
-|
-v
-[ Backend API (NestJS) ]
-- Reports Module
-- Evidence Module
-- Cases Module
-- AI Module
-- Users Module
-|
-v
-[ Data Layer ]
-- PostgreSQL (structured data)
-- Redis (queues + cache)
-- Object Storage (evidence files)
+Planned but not wired yet:
+  - Redis
+  - Auth/RBAC
+  - Swagger
+  - Production AI providers
+  - Durable object storage
 ```
 
+---
+
+## Backend Architecture
+
+### Application Composition
+
+`backend/src/app.module.ts` currently composes these modules:
+
+- `ReportsModule`
+- `EvidenceModule`
+- `CasesModule`
+- `AiModule`
+- `UsersModule`
+- `PlatformsModule`
+- `ViolationTypesModule`
+- `SanctionTemplatesModule`
+- `IntegrationSourcesModule`
+- `SubjectsModule`
+- `NotesModule`
+- `VerdictsModule`
+- `CaseViolationTypesModule`
+- `AuditLogsModule`
+- `PrismaModule`
+
+Notably, there is **no `GamesModule` yet**, so game data exists in the Prisma schema and seed data but does not currently have its own REST surface.
+
+### API Behavior in Place
+
+The backend is not just raw CRUD anymore:
+
+- `ReportsService.ingestFromIntegration()` validates related entities and creates reports through `POST /reports/ingest`
+- `CasesService.getCaseById()` returns an aggregated case view with subjects, reports, evidence, notes, verdict, and flattened violation types
+- `CasesService.listCases()` supports filtering and pagination for case search
+- `CasesService.createNote()` auto-pins the first note in a case
+- `CasesService.softDeleteNote()` performs note soft deletion
+- `CasesService.createEvidence()` creates evidence and attachment metadata records for uploaded files
+
+### Cross-Cutting Runtime Configuration
+
+`backend/src/main.ts` currently provides:
+
+- global `ValidationPipe`
+- JSON and URL-encoded request parsing
+- CORS for the Vite dev server at `http://localhost:5173`
+- static file serving from `/uploads`
+
+Missing cross-cutting pieces:
+
+- global exception filters
+- auth guards
+- RBAC enforcement
+- Swagger/OpenAPI
+- Redis-backed queues/caching
+
+### Evidence Handling Today
+
+Evidence upload support is only partially complete:
+
+- the `cases` controller accepts multipart uploads with file type and size checks
+- the service writes `Evidence` and `Attachment` database records
+- attachment URLs are shaped as `/uploads/...`
+
+What is still missing:
+
+- durable local disk persistence or object storage wiring
+- background processing
+- metadata extraction
+- thumbnail generation
+
+### AI Module Status
+
+The AI module exists as a placeholder service. It exposes stub methods for:
+
+- evidence analysis
+- case risk scoring
+
+There is no external model provider, queue, cache, or persistence flow connected yet.
 
 ---
 
-## Backend Architecture Details
+## Frontend Architecture
 
-### **Reports Module**
-- Accepts player-submitted reports  
-- Normalizes metadata (player ID, timestamps, region, platform)  
-- Validates evidence references  
-- Emits processing jobs to Redis queues  
+### Implemented UI Structure
 
-### **Evidence Module**
-- Handles video/image uploads  
-- Extracts metadata (duration, resolution, timestamps)  
-- Stores files in object storage  
-- Generates preview thumbnails (future enhancement)  
+The frontend is a single React application with `BrowserRouter` and a permanent left navigation drawer.
 
-### **Cases Module**
-- Groups related reports  
-- Correlates by player, timestamp, region, or behavioral pattern  
-- Computes confidence scores  
-- Tracks case lifecycle (open → triaged → actioned)  
+Implemented routes:
 
-### **AI Module**
-- Summarizes video evidence  
-- Extracts suspicious behavior indicators  
-- Clusters similar reports  
-- Provides anomaly scoring  
+- `/` → `Dashboard`
+- `/cases` → `Cases`
+- `/cases/:id` → `CaseView`
+- `/reports` → `ReportIntake`
 
-### **Users Module**
-- Authentication (JWT/OAuth planned)  
-- Role-based access (reviewer, admin, auditor)  
-- Audit logging  
+### Current Page Status
+
+- `Dashboard.tsx` is a shell page
+- `Cases.tsx` fetches and lists backend cases
+- `CaseView.tsx` fetches a case by id and renders evidence/report sections
+- `ReportIntake.tsx` is a shell page
+
+The current frontend uses direct `fetch()` calls inside pages. There is no shared API client, React Query layer, auth state, or route protection yet.
 
 ---
 
-## Frontend Architecture Details
+## Data Layer
 
-### **Pages**
-- **Dashboard** — triage queue, filters, case metrics  
-- **Case View** — evidence viewer, metadata, AI summaries  
-- **Report Intake** — internal/external report submission  
+### Database
 
-### **Shared Components**
-- Evidence viewer  
-- Case metadata panel  
-- Confidence score indicator  
-- Role-based UI guards  
+Prisma targets PostgreSQL and models the full case-review domain:
 
-### **State Management**
-- React Query recommended for server state  
-- Minimal global state  
+- configuration tables (`Game`, `Platform`, `ViolationType`, `SanctionTemplate`, `IntegrationSource`)
+- operational tables (`Case`, `Subject`, `Report`, `Evidence`, `Attachment`, `Note`, `Verdict`, `AuditLog`)
+- users and role enums
 
----
+The canonical schema lives in:
 
-## Data Flow
+- `/home/runner/work/Cheater-Case-Intelligence-Platform/Cheater-Case-Intelligence-Platform/backend/prisma/schema.prisma`
 
-### **1. Report Intake**
-1. User submits report  
-2. Backend validates and stores metadata  
-3. Evidence (if any) is uploaded  
-4. Processing job is queued  
+### Seed Data
 
-### **2. Evidence Processing**
-1. Worker extracts metadata  
-2. AI module summarizes content  
-3. Results stored in DB  
+`backend/prisma/seed.ts` is intended to provide:
 
-### **3. Case Correlation**
-1. New report triggers correlation logic  
-2. System groups related reports  
-3. Case confidence score updated  
+- baseline game configuration for The Division 2
+- a single fully-related example case
+- linked users, subjects, reports, evidence, attachments, notes, verdict, violation mappings, and audit logs
 
-### **4. Reviewer Workflow**
-1. Reviewer sees prioritized cases  
-2. Opens case → views evidence + AI summary  
-3. Takes action (flag, escalate, close)  
+This gives both the backend and frontend a realistic relational dataset without seeding multiple cases.
 
 ---
 
-## Technology Choices
+## Current Request Flows
 
-### **NestJS**
-- Strong module boundaries  
-- Built-in validation, DI, and testing  
-- Enterprise-friendly  
+### Case Review Flow
 
-### **Prisma + PostgreSQL**
-- Clean schema  
-- Strong relational modeling  
-- Easy migrations  
+1. Frontend requests `/cases` or `/cases/:id`
+2. `CasesService` loads relational Prisma data
+3. Backend returns aggregated case data
+4. Frontend renders reports and evidence sections
 
-### **Redis**
-- Fast queues for evidence processing  
-- Caching for repeated lookups  
+### Report Ingestion Flow
 
-### **React + Vite + MUI**
-- Fast dev environment  
-- Clean, modern UI  
-- Easy to scale  
+1. A client calls `POST /reports/ingest`
+2. Backend validates the case, reporting user, and optional integration source
+3. Prisma writes the `Report`
+4. The report becomes visible through case detail endpoints
+
+### Evidence Upload Flow
+
+1. A client posts multipart form data to `POST /cases/evidence`
+2. Controller validates file type and size
+3. Service creates `Evidence`
+4. Service creates related `Attachment` metadata
+5. Generated URLs assume uploaded content is available under `/uploads`
 
 ---
 
-## Future Enhancements
+## Immediate Architecture Gaps
 
-- Webhooks for ingesting reports from external systems  
-- Multi-game support with per-title configuration  
-- Reviewer analytics dashboard  
-- Automated case packet export (PDF/JSON)  
-- Integration with studio moderation tools  
+The next meaningful architecture increments are:
+
+1. add the missing `GamesModule` and attachment-specific API surface
+2. replace metadata-only evidence handling with real storage
+3. add authentication, RBAC, and audit hooks
+4. add exception handling and API documentation
+5. introduce a shared frontend API layer and finish the incomplete pages
+6. connect the AI and Redis pieces once the reviewer workflow is stable
 
 ---
 
 ## Summary
 
-CCIP is built as a scalable, modular platform focused on **case intelligence**, not anti-cheat detection.  
-Its architecture supports:
+Today CCIP is best described as an **early vertical slice**:
 
-- high-volume report ingestion  
-- structured evidence analysis  
-- AI-assisted triage  
-- cross-report correlation  
-- reviewer-friendly workflows  
+- the schema is broad
+- most core entities have CRUD APIs
+- case detail and report ingestion flows exist
+- the frontend can browse and inspect case data
 
-This document will evolve as the platform grows.
+The platform is **not** yet production-ready because auth, Redis, durable evidence storage, testing depth, and the real AI pipeline are still outstanding.
