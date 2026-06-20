@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { GamesModule } from './modules/games/games.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { EvidenceModule } from './modules/evidence/evidence.module';
 import { CasesModule } from './modules/cases/cases.module';
@@ -14,11 +15,13 @@ import { NotesModule } from './modules/notes/notes.module';
 import { VerdictsModule } from './modules/verdicts/verdicts.module';
 import { CaseViolationTypesModule } from './modules/case-violation-types/case-violation-types.module';
 import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
+import { AttachmentsModule } from './modules/attachments/attachments.module';
 
 // TODO: RedisModule, ConfigModule
 
 @Module({
   imports: [
+    GamesModule,
     ReportsModule,
     EvidenceModule,
     CasesModule,
@@ -34,6 +37,7 @@ import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
     VerdictsModule,
     CaseViolationTypesModule,
     AuditLogsModule,
+    AttachmentsModule,
   ],
 })
 export class AppModule {}
