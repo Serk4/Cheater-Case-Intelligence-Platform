@@ -7,6 +7,8 @@ import {
   Delete,
   Param,
   Query,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import { CasesService } from './cases.service';
 import { CreateCaseDto } from './dto/create-case.dto';
@@ -19,16 +21,25 @@ import { CreateEvidenceDto } from './dto/create-evidence.dto';
 import { Express } from 'express';
 import * as path from 'path';
 import { Req } from '@nestjs/common';
+import { diskStorage } from 'multer';
 
 
 @Controller('cases')
+@UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
 export class CasesController {
   constructor(private readonly casesService: CasesService) {}
 
-  @Post('evidence')
+  @Post(':caseId/evidence')
   @UseInterceptors(
     FileInterceptor('file', {
-      limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+      storage: diskStorage({
+        destination: './uploads/evidence',
+        filename: (req, file, callback) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          callback(null, `${uniqueSuffix}${path.extname(file.originalname)}`);
+        },
+      }),
+      limits: { fileSize: 500 * 1024 * 1024 }, // 500MB
       fileFilter: (req, file, callback) => {
         const allowedMimeTypes = [
           'image/png',
@@ -67,13 +78,14 @@ export class CasesController {
 
   async createEvidence(
     @UploadedFile() file: Express.Multer.File,
+    @Param('caseId') caseId: string,
     @Body() dto: CreateEvidenceDto,
     @Req() req: any,
   ) {
       console.log('CONTENT-TYPE:', req.headers['content-type']);
       console.log('Received file:', file);
       console.log('DTO:', dto);
-      return this.casesService.createEvidence(dto, file);
+      return this.casesService.createEvidence({ ...dto, caseId }, file);
   }
 
   @Get()

@@ -22,3 +22,7 @@ frontend/.vite/
 *.swp
 .idea/
 .vscode/
+
+# Evidence uploads
+backend/uploads/evidence/
+uploads/evidence/

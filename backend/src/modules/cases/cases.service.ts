@@ -323,8 +323,8 @@ export class CasesService {
         fileName: file.originalname,
         mimeType: file.mimetype,
         sizeBytes: file.size,
-        storageKey: `evidence/${evidence.id}/${file.originalname}`,
-        storageUrl: `/uploads/evidence/${evidence.id}/${file.originalname}`,
+        storageKey: `evidence/${file.filename}`,
+        storageUrl: `/uploads/evidence/${file.filename}`,
       },
     });
 
@@ -333,7 +333,4 @@ export class CasesService {
       attachments: [attachment],
     };
   }
-
-
-
 }
