@@ -1,18 +1,15 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+import { http } from './http';
+import type { CaseData } from './types/case';
+
+const API_BASE = (import.meta as any).env.VITE_API_BASE || 'http://localhost:3000';
 
 export const apiClient = {
-  uploadEvidence: async (caseId: string, formData: FormData) => {
-    const response = await fetch(`${API_BASE}/cases/${caseId}/evidence`, {
+  uploadEvidence: (caseId: string, formData: FormData) =>
+    http(`${API_BASE}/cases/${caseId}/evidence`, {
       method: 'POST',
       body: formData,
-    });
+    }),
 
-    if (!response.ok) throw new Error('Upload failed');
-    return response.json();
-  },
-
-  getCase: async (caseId: string) => {
-    const res = await fetch(`${API_BASE}/cases/${caseId}`);
-    return res.json();
-  }
+  getCase: (caseId: string): Promise<CaseData> =>
+    http(`${API_BASE}/cases/${caseId}`),
 };

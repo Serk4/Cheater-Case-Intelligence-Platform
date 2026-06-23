@@ -1,90 +1,121 @@
-import { useState } from 'react';
-import { apiClient } from '../api/client';
+import { useState } from 'react'
+import {
+	Box,
+	Typography,
+	TextField,
+	Select,
+	MenuItem,
+	Button,
+} from '@mui/material'
+import { apiClient } from '../api/client'
 
 interface EvidenceUploaderProps {
-  caseId: string;
-  onSuccess?: () => void;
+	caseId: string
+	onSuccess?: () => void
 }
 
-export default function EvidenceUploader({ caseId, onSuccess }: EvidenceUploaderProps) {
-  const [uploading, setUploading] = useState(false);
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [evidenceType, setEvidenceType] = useState<'SCREENSHOT' | 'VIDEO' | 'REPLAY' | 'LOG' | 'OTHER'>('SCREENSHOT');
+export default function EvidenceUploader({
+	caseId,
+	onSuccess,
+}: EvidenceUploaderProps) {
+	const [uploading, setUploading] = useState(false)
+	const [title, setTitle] = useState('')
+	const [description, setDescription] = useState('')
+	const [evidenceType, setEvidenceType] = useState('SCREENSHOT')
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const fileInput = e.currentTarget.file as HTMLInputElement;
-    const file = fileInput?.files?.[0];
+	const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+		e.preventDefault()
+		const target = e.target as typeof e.target & {
+			file: { files: FileList }
+		}
+		const file = target.file.files[0]
+		if (!file || !title) return alert('File and title required')
 
-    if (!file || !title) {
-      alert('File and title are required');
-      return;
-    }
+		setUploading(true)
 
-    setUploading(true);
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('title', title);
-    formData.append('description', description);
-    formData.append('evidenceType', evidenceType);
-    formData.append('uploadedById', 'cmqhc0zF000pu0d84hsovsc0'); // ← replace with real logged-in user ID later
+		const formData = new FormData()
+		formData.append('file', file)
+		formData.append('title', title)
+		formData.append('description', description)
+		formData.append('evidenceType', evidenceType)
+		formData.append('uploadedById', 'cmqhc0zF000pu0d84hsovsc0')
 
-    try {
-      await apiClient.uploadEvidence(caseId, formData);
-      alert('Evidence uploaded successfully!');
-      setTitle('');
-      setDescription('');
-      onSuccess?.();
-    } catch (error) {
-      console.error(error);
-      alert('Upload failed');
-    } finally {
-      setUploading(false);
-    }
-  };
+		try {
+			await apiClient.uploadEvidence(caseId, formData)
+			setTitle('')
+			setDescription('')
+			onSuccess?.()
+		} finally {
+			setUploading(false)
+		}
+	}
 
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4 p-4 border rounded-lg bg-gray-50">
-      <h3 className="font-semibold text-lg">Upload Evidence</h3>
+	return (
+		<Box
+			sx={{
+				mt: 4,
+				p: 3,
+				border: '1px solid #333',
+				borderRadius: 2,
+				backgroundColor: '#1a1f2e',
+			}}
+		>
+			<Typography variant='h6' gutterBottom>
+				Upload Evidence
+			</Typography>
 
-      <input
-        type="text"
-        placeholder="Title *"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        className="w-full p-2 border rounded"
-        required
-      />
+			<form
+				onSubmit={handleSubmit}
+				style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
+			>
+				<TextField
+					label='Title'
+					value={title}
+					onChange={(e) => setTitle(e.target.value)}
+					required
+					fullWidth
+					InputProps={{ style: { color: '#fff' } }}
+					InputLabelProps={{ style: { color: '#aaa' } }}
+				/>
 
-      <textarea
-        placeholder="Description"
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        className="w-full p-2 border rounded h-24"
-      />
+				<TextField
+					label='Description'
+					value={description}
+					onChange={(e) => setDescription(e.target.value)}
+					multiline
+					minRows={3}
+					fullWidth
+					InputProps={{ style: { color: '#fff' } }}
+					InputLabelProps={{ style: { color: '#aaa' } }}
+				/>
 
-      <select
-        value={evidenceType}
-        onChange={(e) => setEvidenceType(e.target.value as any)}
-        className="w-full p-2 border rounded"
-      >
-        <option value="SCREENSHOT">Screenshot</option>
-        <option value="VIDEO">Video</option>
-        <option value="REPLAY">Replay</option>
-        <option value="LOG">Log File</option>
-        <option value="OTHER">Other</option>
-      </select>
+				<Select
+					value={evidenceType}
+					onChange={(e) => setEvidenceType(e.target.value)}
+					fullWidth
+					sx={{ color: '#fff', borderColor: '#444' }}
+				>
+					<MenuItem value='SCREENSHOT'>Screenshot</MenuItem>
+					<MenuItem value='VIDEO'>Video</MenuItem>
+					<MenuItem value='REPLAY'>Replay</MenuItem>
+					<MenuItem value='LOG'>Log File</MenuItem>
+					<MenuItem value='OTHER'>Other</MenuItem>
+				</Select>
 
-      <input type="file" name="file" accept="image/*,video/*" required />
+				<label htmlFor='evidence-file'>Upload File</label>
+				<input
+					type='file'
+					id='evidence-file'
+					name='file'
+					accept='image/*,video/*'
+					required
+					aria-label='Evidence file upload'
+				/>
 
-      <button
-        type="submit"
-        disabled={uploading}
-        className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
-      >
-        {uploading ? 'Uploading...' : 'Upload Evidence'}
-      </button>
-    </form>
-  );
+				<Button variant='contained' type='submit' disabled={uploading}>
+					{uploading ? 'Uploading...' : 'Upload Evidence'}
+				</Button>
+			</form>
+		</Box>
+	)
 }

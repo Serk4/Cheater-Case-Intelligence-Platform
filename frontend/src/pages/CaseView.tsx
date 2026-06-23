@@ -6,190 +6,8 @@ import ImageIcon from '@mui/icons-material/Image'
 import MovieIcon from '@mui/icons-material/Movie'
 import DescriptionIcon from '@mui/icons-material/Description'
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile'
-
-// ----------------------
-// Types
-// ----------------------
-interface Attachment {
-	id: string
-	fileName: string
-	mimeType: string
-	sizeBytes: number
-	storageUrl: string
-	createdAt: string
-}
-
-interface Evidence {
-	id: string
-	type: string
-	description?: string | null
-	createdAt: string
-	attachments?: Attachment[]
-}
-
-interface Report {
-	id: string
-	description: string
-	createdAt: string
-	reportedBy?: {
-		id: string
-		displayName: string | null
-	} | null
-}
-
-interface CaseData {
-	id: string
-	caseNumber: string
-	title: string | null
-	description: string | null
-	status: string
-	priority: string
-	createdAt: string
-
-	reports?: Report[]
-	evidence?: Evidence[]
-}
-
-// ==================== EVIDENCE UPLOADER ====================
-function EvidenceUploader({ caseId, onSuccess }: { caseId: string; onSuccess?: () => void }) {
-  const [uploading, setUploading] = useState(false);
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [evidenceType, setEvidenceType] = useState<'SCREENSHOT' | 'VIDEO' | 'REPLAY' | 'LOG' | 'OTHER'>('SCREENSHOT');
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    
-    const fileInput = (e.target as HTMLFormElement).elements.namedItem('file') as HTMLInputElement;
-    const file = fileInput?.files?.[0];
-
-    if (!file || !title) {
-      alert('Please provide a title and select a file');
-      return;
-    }
-
-    setUploading(true);
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('title', title);
-    formData.append('description', description || '');
-    formData.append('evidenceType', evidenceType);
-    formData.append('uploadedById', 'cmqmhc0yb0003u0d8d51lvcis'); // ← ToDO: replace with actual logged-in user ID
-    formData.append('caseId', caseId);
-
-    try {
-      const res = await fetch(`http://localhost:3000/cases/${caseId}/evidence`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      const responseData = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        console.error('Upload error:', responseData);
-        alert(`Upload failed: ${responseData.message || responseData.error || 'Unknown error'}`);
-        return;
-      }
-
-      alert('✅ Evidence uploaded successfully!');
-      setTitle('');
-      setDescription('');
-      onSuccess?.();
-    } catch (err: any) {
-      console.error(err);
-      alert(`Network error: ${err.message}`);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-	return (
-		<Box
-			sx={{
-				mt: 4,
-				p: 3,
-				border: '1px solid #333',
-				borderRadius: 2,
-				backgroundColor: '#1a1f2e',
-			}}
-		>
-			<Typography variant='h6' gutterBottom>
-				Upload New Evidence
-			</Typography>
-
-			<form
-				onSubmit={handleSubmit}
-				style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
-			>
-				<input
-					type='text'
-					placeholder='Evidence Title (required)'
-					value={title}
-					onChange={(e) => setTitle(e.target.value)}
-					style={{
-						padding: 12,
-						background: '#111',
-						color: '#fff',
-						border: '1px solid #444',
-						borderRadius: 4,
-					}}
-					required
-				/>
-
-				<textarea
-					placeholder='Description (optional)'
-					value={description}
-					onChange={(e) => setDescription(e.target.value)}
-					style={{
-						padding: 12,
-						background: '#111',
-						color: '#fff',
-						border: '1px solid #444',
-						borderRadius: 4,
-						minHeight: 80,
-					}}
-				/>
-
-				<select
-					title='Evidence Type'
-					value={evidenceType}
-					onChange={(e) => setEvidenceType(e.target.value as any)}
-					style={{
-						padding: 12,
-						background: '#111',
-						color: '#fff',
-						border: '1px solid #444',
-						borderRadius: 4,
-					}}
-				>
-					<option value='SCREENSHOT'>Screenshot</option>
-					<option value='VIDEO'>Video</option>
-					<option value='REPLAY'>Replay File</option>
-					<option value='LOG'>Log File</option>
-					<option value='OTHER'>Other</option>
-				</select>
-
-				<input title='Evidence File' type='file' name='file' accept='image/*,video/*,.dem,.log' />
-
-				<button
-          title='Upload Evidence'
-					type='submit'
-					disabled={uploading}
-					style={{
-						padding: '12px 24px',
-						background: '#1976d2',
-						color: 'white',
-						border: 'none',
-						borderRadius: 4,
-						cursor: uploading ? 'not-allowed' : 'pointer',
-					}}
-				>
-					{uploading ? 'Uploading...' : 'Upload Evidence'}
-				</button>
-			</form>
-		</Box>
-	)
-}
+import EvidenceUploader from '../components/EvidenceUploader'
+import { CaseData, Evidence, Report, Attachment } from '../api/types/case'
 
 // ----------------------
 // Helpers
@@ -238,6 +56,7 @@ function getAttachmentIcon(type: string) {
 export default function CaseView() {
 	const { id } = useParams<{ id: string }>()
 	const [caseData, setCaseData] = useState<CaseData | null>(null)
+
 	const [loading, setLoading] = useState(true)
 	const [error, setError] = useState<string | null>(null)
 
@@ -358,64 +177,80 @@ export default function CaseView() {
 			</Typography>
 
 			{/* ==================== EVIDENCE SECTION ==================== */}
-<Box sx={{ mt: 4 }}>
-  <Typography variant="h6" gutterBottom>
-    Evidence
-  </Typography>
+			<Box sx={{ mt: 4 }}>
+				<Typography variant='h6' gutterBottom>
+					Evidence
+				</Typography>
 
-  {caseData.evidence && caseData.evidence.length > 0 ? (
-    caseData.evidence.map((ev, index) => (
-      <Box
-        key={ev.id}
-        sx={{
-          mb: 2,
-          p: 2,
-          border: evidenceIndex === index ? '2px solid #90caf9' : '1px solid #333',
-          borderRadius: 1,
-          cursor: 'pointer',
-          backgroundColor: evidenceIndex === index ? '#1a1f2e' : 'transparent',
-          '&:hover': {
-            backgroundColor: '#1a1f2e',
-            borderColor: '#90caf9',
-          },
-        }}
-        onClick={() => openEvidenceDrawerAtIndex(index)}
-      >
-        <Typography variant="subtitle1">{ev.type}</Typography>
-        <Typography variant="body2" color="text.secondary">
-          Uploaded: {new Date(ev.createdAt).toLocaleString()}
-        </Typography>
+				{caseData.evidence && caseData.evidence.length > 0 ? (
+					caseData.evidence.map((ev, index) => (
+						<Box
+							key={ev.id}
+							sx={{
+								mb: 2,
+								p: 2,
+								border:
+									evidenceIndex === index
+										? '2px solid #90caf9'
+										: '1px solid #333',
+								borderRadius: 1,
+								cursor: 'pointer',
+								backgroundColor:
+									evidenceIndex === index ? '#1a1f2e' : 'transparent',
+								'&:hover': {
+									backgroundColor: '#1a1f2e',
+									borderColor: '#90caf9',
+								},
+							}}
+							onClick={() => openEvidenceDrawerAtIndex(index)}
+						>
+							<Typography variant='subtitle1'>{ev.type}</Typography>
+							<Typography variant='body2' color='text.secondary'>
+								Uploaded: {new Date(ev.createdAt).toLocaleString()}
+							</Typography>
 
-        {ev.attachments?.map((att) => {
-          const type = getAttachmentType(att.fileName);
-          const fullUrl = `http://localhost:3000${att.storageUrl}`;
+							{ev.attachments?.map((att) => {
+								const type = getAttachmentType(att.fileName)
+								const fullUrl = `http://localhost:3000${att.storageUrl}`
 
-          return (
-            <Box key={att.id} sx={{ mt: 1 }}>
-              <Typography
-                sx={{ color: '#90caf9', cursor: 'pointer' }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openViewer(type, fullUrl);   // Enable preview
-                }}
-              >
-                📎 {att.fileName ?? 'Unnamed Attachment'}
-              </Typography>
-            </Box>
-          );
-        })}
-      </Box>
-    ))
-  ) : (
-    <Typography color="text.secondary">No evidence uploaded yet.</Typography>
-  )}
+								return (
+									<Box key={att.id} sx={{ mt: 1 }}>
+										<Typography
+											sx={{ color: '#90caf9', cursor: 'pointer' }}
+											onClick={(e) => {
+												e.stopPropagation()
+												openViewer(type, fullUrl) // Enable preview
+											}}
+										>
+											📎 {att.fileName ?? 'Unnamed Attachment'}
+										</Typography>
+									</Box>
+								)
+							})}
+						</Box>
+					))
+				) : (
+					<Typography color='text.secondary'>
+						No evidence uploaded yet.
+					</Typography>
+				)}
 
-  {/* Evidence Upload Form */}
-  <EvidenceUploader 
-    caseId={caseData.id} 
-    onSuccess={() => window.location.reload()} 
-  />
-</Box>
+				{/* Evidence Upload Form */}
+				<Box
+					sx={{
+						mt: 4,
+						p: 3,
+						border: '1px solid #333',
+						borderRadius: 2,
+						backgroundColor: '#1a1f2e',
+					}}
+				>
+					<EvidenceUploader
+						caseId={caseData.id}
+						onSuccess={() => window.location.reload()}
+					/>
+				</Box>
+			</Box>
 
 			{/* ---------------------- Reports ---------------------- */}
 			<Box sx={{ mt: 4 }}>
@@ -452,7 +287,7 @@ export default function CaseView() {
 			<Dialog open={viewerOpen} onClose={closeViewer} maxWidth='lg' fullWidth>
 				<Box sx={{ p: 2 }}>
 					{viewerContent?.type === 'image' && (
-						<img src={viewerContent.url} style={{ width: '100%' }} />
+						<img alt={`Evidence image for case ${caseData.caseNumber}`} src={viewerContent.url} style={{ width: '100%' }} />
 					)}
 
 					{viewerContent?.type === 'video' && (
@@ -462,6 +297,7 @@ export default function CaseView() {
 					{viewerContent?.type === 'text' && (
 						<iframe
 							src={viewerContent.url}
+							title='Evidence Text Viewer'
 							style={{
 								width: '100%',
 								height: '70vh',
