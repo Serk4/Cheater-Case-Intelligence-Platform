@@ -24,21 +24,28 @@ export default function EvidenceUploader({
 	const [evidenceType, setEvidenceType] = useState('SCREENSHOT')
 
 	const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+		console.log('FORM SUBMITTED')
 		e.preventDefault()
-		const target = e.target as typeof e.target & {
-			file: { files: FileList }
+
+		const input = document.getElementById('evidence-file') as HTMLInputElement
+		const files = input.files
+
+		if (!files || files.length === 0 || !title) {
+			return alert('Files and title required')
 		}
-		const file = target.file.files[0]
-		if (!file || !title) return alert('File and title required')
 
 		setUploading(true)
 
 		const formData = new FormData()
-		formData.append('file', file)
+		for (const file of files) {
+			formData.append('files', file)
+		}
+
+		formData.append('caseId', caseId)
 		formData.append('title', title)
 		formData.append('description', description)
 		formData.append('evidenceType', evidenceType)
-		formData.append('uploadedById', 'cmqhc0zF000pu0d84hsovsc0')
+		formData.append('uploadedById', 'cmqqz13vg0003u06k4cgzokut')
 
 		try {
 			await apiClient.uploadEvidence(caseId, formData)
@@ -106,13 +113,14 @@ export default function EvidenceUploader({
 				<input
 					type='file'
 					id='evidence-file'
-					name='file'
-					accept='image/*,video/*'
+					name='files'
+					accept='image/*,video/*,text/plain,application/json'
+					multiple
 					required
 					aria-label='Evidence file upload'
 				/>
 
-				<Button variant='contained' type='submit' disabled={uploading}>
+				<Button variant='contained' type='submit' component='button' disabled={uploading}>
 					{uploading ? 'Uploading...' : 'Upload Evidence'}
 				</Button>
 			</form>

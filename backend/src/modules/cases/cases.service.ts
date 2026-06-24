@@ -278,59 +278,65 @@ export class CasesService {
     });
   }
 
-  async createEvidence(dto: CreateEvidenceDto, file: Express.Multer.File) {
-    const {
+async createEvidence(dto: CreateEvidenceDto, files: Express.Multer.File[]) {
+  const {
+    caseId,
+    uploadedById,
+    title,
+    description,
+    evidenceType,
+    metadata,
+    capturedAt,
+  } = dto;
+
+  if (!files || files.length === 0) {
+    throw new Error('At least one file upload is required.');
+  }
+
+  // Ensure case exists
+  await this.prisma.case.findUniqueOrThrow({
+    where: { id: caseId },
+  });
+
+  // Ensure user exists
+  await this.prisma.user.findUniqueOrThrow({
+    where: { id: uploadedById },
+  });
+
+  // Create the Evidence record
+  const evidence = await this.prisma.evidence.create({
+    data: {
       caseId,
       uploadedById,
       title,
       description,
-      evidenceType,
+      evidenceType: evidenceType ?? 'OTHER',
       metadata,
-      capturedAt,
-    } = dto;
+      capturedAt: capturedAt ? new Date(capturedAt) : null,
+    },
+  });
 
-    if (!file) {
-      throw new Error('File upload is required.');
-    }
+  // Create Attachment rows for each uploaded file
+  const attachments = await Promise.all(
+    files.map((file) =>
+      this.prisma.attachment.create({
+        data: {
+          evidenceId: evidence.id,
+          fileName: file.originalname,
+          mimeType: file.mimetype,
+          sizeBytes: file.size,
+          storageKey: `evidence/${file.filename}`,
+          storageUrl: `/uploads/evidence/${file.filename}`,
+        },
+      })
+    )
+  );
 
-    // Ensure case exists
-    await this.prisma.case.findUniqueOrThrow({
-      where: { id: caseId },
-    });
+  // Return Evidence with all attachments included
+  return {
+    ...evidence,
+    attachments,
+  };
+}
 
-    // Ensure user exists
-    await this.prisma.user.findUniqueOrThrow({
-      where: { id: uploadedById },
-    });
-
-    // Create Evidence
-    const evidence = await this.prisma.evidence.create({
-      data: {
-        caseId,
-        uploadedById,
-        title,
-        description,
-        evidenceType: evidenceType ?? 'OTHER',
-        metadata,
-        capturedAt: capturedAt ? new Date(capturedAt) : null,
-      },
-    });
-
-    // Create Attachment record
-    const attachment = await this.prisma.attachment.create({
-      data: {
-        evidenceId: evidence.id,
-        fileName: file.originalname,
-        mimeType: file.mimetype,
-        sizeBytes: file.size,
-        storageKey: `evidence/${file.filename}`,
-        storageUrl: `/uploads/evidence/${file.filename}`,
-      },
-    });
-
-    return {
-      ...evidence,
-      attachments: [attachment],
-    };
-  }
 }

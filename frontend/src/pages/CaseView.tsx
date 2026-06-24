@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Box, Typography, Chip, CircularProgress, Dialog } from '@mui/material'
+import {
+	Box,
+	Typography,
+	Chip,
+	CircularProgress,
+	Dialog,
+	List,
+	ListItem,
+	ListItemText,
+} from '@mui/material'
 import { useParams } from 'react-router-dom'
 import { Drawer } from '@mui/material'
 import ImageIcon from '@mui/icons-material/Image'
@@ -61,10 +70,11 @@ export default function CaseView() {
 	const [error, setError] = useState<string | null>(null)
 
 	const [viewerOpen, setViewerOpen] = useState(false)
-	const [viewerContent, setViewerContent] = useState<{
-		type: string
-		url: string
-	} | null>(null)
+	type ViewerContent =
+		| { type: 'image' | 'video' | 'pdf'; url: string }
+		| { type: 'text'; text: string }
+
+	const [viewerContent, setViewerContent] = useState<ViewerContent | null>(null)
 
 	// Drawer state
 	const [drawerOpen, setDrawerOpen] = useState(false)
@@ -85,6 +95,8 @@ export default function CaseView() {
 	const [evidenceIndex, setEvidenceIndex] = useState<number | null>(null)
 
 	function openEvidenceDrawerAtIndex(index: number) {
+		console.log('DRAWER OPENED')
+
 		if (!caseData?.evidence) return
 		setEvidenceIndex(index)
 		setSelectedEvidence(caseData.evidence[index])
@@ -107,8 +119,52 @@ export default function CaseView() {
 		}
 	}
 
+	function openAttachment(att: Attachment) {
+		const mime = att.mimeType
+		const url = att.storageUrl.startsWith('http')
+			? att.storageUrl
+			: `http://localhost:3000${att.storageUrl}`
+
+		try {
+			if (mime.startsWith('image/')) {
+				setViewerContent({ type: 'image', url })
+				setViewerOpen(true)
+				return
+			}
+
+			if (mime.startsWith('video/')) {
+				setViewerContent({ type: 'video', url })
+				setViewerOpen(true)
+				return
+			}
+
+			if (mime.startsWith('text/') || mime === 'text/plain') {
+				fetch(url)
+					.then((res) => res.text())
+					.then((text) => {
+						console.log('TEXT CONTENT:', text)
+						setViewerContent({ type: 'text', text })
+						setViewerOpen(true)
+					})
+					.catch(() => window.open(url, '_blank'))
+				return
+			}
+
+			if (mime === 'application/pdf') {
+				setViewerContent({ type: 'pdf', url })
+				setViewerOpen(true)
+				return
+			}
+
+			window.open(url, '_blank')
+		} catch (err) {
+			console.error('Attachment viewer error:', err)
+			window.open(url, '_blank')
+		}
+	}
+
 	function openViewer(type: string, url: string) {
-		setViewerContent({ type, url })
+		setViewerContent({ type: type as 'image' | 'video' | 'pdf', url })
 		setViewerOpen(true)
 	}
 
@@ -147,6 +203,18 @@ export default function CaseView() {
 				setLoading(false)
 			})
 	}, [id])
+
+	const refreshCase = async () => {
+		try {
+			const res = await fetch(`http://localhost:3000/cases/${id}`)
+			if (!res.ok) throw new Error('Failed to fetch case')
+			const data = await res.json()
+			setCaseData(data)
+		} catch (err) {
+			console.error(err)
+			setError('Could not refresh case.')
+		}
+	}
 
 	if (loading) {
 		return (
@@ -212,18 +280,22 @@ export default function CaseView() {
 							{ev.attachments?.map((att) => {
 								const type = getAttachmentType(att.fileName)
 								const fullUrl = `http://localhost:3000${att.storageUrl}`
+								console.log('TYPE:', type, 'ATTACHMENT:', JSON.stringify(att))
 
 								return (
 									<Box key={att.id} sx={{ mt: 1 }}>
-										<Typography
-											sx={{ color: '#90caf9', cursor: 'pointer' }}
-											onClick={(e) => {
+										<Box
+											onClickCapture={(e) => {
+												e.preventDefault()
 												e.stopPropagation()
-												openViewer(type, fullUrl) // Enable preview
+												openAttachment(att)
 											}}
+											sx={{ display: 'inline-block', cursor: 'pointer' }}
 										>
-											📎 {att.fileName ?? 'Unnamed Attachment'}
-										</Typography>
+											<Typography sx={{ color: '#90caf9' }}>
+												📎 {att.fileName ?? 'Unnamed Attachment'}
+											</Typography>
+										</Box>
 									</Box>
 								)
 							})}
@@ -245,10 +317,7 @@ export default function CaseView() {
 						backgroundColor: '#1a1f2e',
 					}}
 				>
-					<EvidenceUploader
-						caseId={caseData.id}
-						onSuccess={() => window.location.reload()}
-					/>
+					<EvidenceUploader caseId={caseData.id} onSuccess={refreshCase} />
 				</Box>
 			</Box>
 
@@ -286,32 +355,74 @@ export default function CaseView() {
 			{/* ---------------------- Viewer Modal ---------------------- */}
 			<Dialog open={viewerOpen} onClose={closeViewer} maxWidth='lg' fullWidth>
 				<Box sx={{ p: 2 }}>
+					{/* Main Evidence Viewer */}
+					{/* IMAGE */}
 					{viewerContent?.type === 'image' && (
-						<img alt={`Evidence image for case ${caseData.caseNumber}`} src={viewerContent.url} style={{ width: '100%' }} />
+						<img
+							src={viewerContent.url}
+							alt='Evidence image'
+							style={{ width: '100%' }}
+						/>
 					)}
 
+					{/* VIDEO */}
 					{viewerContent?.type === 'video' && (
 						<video src={viewerContent.url} controls style={{ width: '100%' }} />
 					)}
 
+					{/* TEXT */}
 					{viewerContent?.type === 'text' && (
-						<iframe
-							src={viewerContent.url}
-							title='Evidence Text Viewer'
-							style={{
-								width: '100%',
+						<Box
+							sx={{
+								whiteSpace: 'pre-wrap',
+								color: 'white !important',
+								backgroundColor: '#111',
+								padding: 2,
+								borderRadius: 1,
+								fontFamily: 'monospace',
+								fontSize: '0.9rem',
 								height: '70vh',
-								background: '#111',
-								color: '#fff',
+								overflowY: 'auto',
 							}}
+						>
+							{viewerContent.text}
+						</Box>
+					)}
+
+					{/* PDF */}
+					{viewerContent?.type === 'pdf' && (
+						<iframe
+							name='pdf-viewer'
+							title='PDF Viewer'
+							src={viewerContent.url}
+							style={{ width: '100%', height: '70vh', background: '#111' }}
 						/>
 					)}
 
-					{viewerContent?.type === 'other' && (
-						<Typography>
-							Download: <a href={viewerContent.url}>{viewerContent.url}</a>
-						</Typography>
-					)}
+					{/* Attachments Section */}
+					{selectedEvidence?.attachments &&
+						selectedEvidence.attachments.length > 0 && (
+							<Box sx={{ mt: 3 }}>
+								<Typography variant='subtitle2' sx={{ mb: 1 }}>
+									Attachments
+								</Typography>
+
+								<List dense>
+									{selectedEvidence.attachments.map((att) => (
+										<ListItem
+											key={att.id}
+											button
+											onClick={() => openAttachment(att)}
+										>
+											<ListItemText
+												primary={att.fileName}
+												secondary={att.mimeType}
+											/>
+										</ListItem>
+									))}
+								</List>
+							</Box>
+						)}
 				</Box>
 			</Dialog>
 			<Drawer
