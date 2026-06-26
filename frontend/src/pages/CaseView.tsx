@@ -19,6 +19,7 @@ import EvidenceUploader from '../components/EvidenceUploader'
 import { CaseData, Evidence, Report, Attachment } from '../api/types/case'
 import NotesPanel from '../components/NotesPanel'
 import EvidenceNotesPanel from '../components/EvidenceNotesPanel'
+import { renderCaseStatus } from '../utils/enums'
 
 // ----------------------
 // Helpers
@@ -239,9 +240,7 @@ export default function CaseView() {
 			<Typography variant='h4' gutterBottom>
 				Case #{caseData.caseNumber ?? caseData.id}
 			</Typography>
-
-			<Chip label={caseData.status} sx={{ mb: 2 }} />
-
+			<Typography>{renderCaseStatus(caseData.status)}</Typography>
 			<Typography variant='body2' color='text.secondary'>
 				Created: {new Date(caseData.createdAt).toLocaleString()}
 			</Typography>
@@ -536,7 +535,7 @@ export default function CaseView() {
 					{selectedEvidence && selectedEvidence.id && (
 						<EvidenceNotesPanel caseId={id} evidenceId={selectedEvidence.id} />
 					)}
-				</Box>				
+				</Box>
 			</Drawer>
 		</Box>
 	)
