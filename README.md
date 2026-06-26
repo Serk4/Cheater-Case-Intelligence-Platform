@@ -67,7 +67,7 @@ The initial target use case is **Tom Clancy's The Division 2**, but the platform
 - [ ] Restore backend lint/test tooling so `npm run lint` and `npm test` work locally
 
 ### Backend CRUD Modules
-- [ ] Game CRUD
+- [x] Game CRUD
 - [x] Platform CRUD
 - [x] ViolationType CRUD
 - [x] SanctionTemplate CRUD
@@ -77,7 +77,7 @@ The initial target use case is **Tom Clancy's The Division 2**, but the platform
 - [x] Subject CRUD
 - [x] Report CRUD
 - [x] Evidence CRUD
-- [ ] Attachment CRUD
+- [x] Attachment CRUD
 - [x] Note CRUD
 - [x] Verdict CRUD
 - [x] CaseViolationType CRUD (composite PK)
@@ -87,8 +87,8 @@ The initial target use case is **Tom Clancy's The Division 2**, but the platform
 - [x] Implement report ingestion logic (`backend/src/modules/reports/`)
 - [x] Implement case detail and case search endpoints (`backend/src/modules/cases/`)
 - [x] Implement note creation and soft-delete flows (`backend/src/modules/cases/`)
-- [ ] Finish the Game and Attachment API surfaces
-- [ ] Persist uploaded evidence files to durable local storage or object storage
+- [x] Finish the Game and Attachment API surfaces
+- [x] Persist uploaded evidence files to durable local storage or object storage
 - [ ] Add formal case workflow rules for status transitions, assignment, escalation, and closure
 - [ ] Add audit logging middleware/hooks for case activity
 - [x] Add global validation pipes
