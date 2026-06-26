@@ -97,6 +97,17 @@ The initial target use case is **Tom Clancy's The Division 2**, but the platform
 - [ ] Implement user authentication (JWT/OAuth)
 - [ ] Implement role-based access control (RBAC)
 - [ ] Replace AI service stubs with a real provider-backed analysis pipeline
+#### Case Number Generator (Future Upgrade)
+- [ ] Replace current `CASE-${short}-${date}-${seq}` generator (count-based) with a
+      concurrency-safe implementation.
+- [ ] Add new Prisma model `CaseNumberCounter` with `gameId`, `date`, and `counter`
+      fields, including a `@@unique([gameId, date])` constraint.
+- [ ] Add migration to create the `CaseNumberCounter` table.
+- [ ] Update `CaseNumberService` to use atomic `upsert()` increments instead of
+      counting existing cases.
+- [ ] Add unique constraint on `caseNumber` in `Case` model (if not already present).
+- [ ] Add unit tests for sequence rollover, daily reset, and multi-game isolation.
+
 
 ### Frontend
 - [x] Create the application shell and route navigation (`frontend/src/App.tsx`)
