@@ -17,6 +17,8 @@ import DescriptionIcon from '@mui/icons-material/Description'
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile'
 import EvidenceUploader from '../components/EvidenceUploader'
 import { CaseData, Evidence, Report, Attachment } from '../api/types/case'
+import NotesPanel from '../components/NotesPanel'
+import EvidenceNotesPanel from '../components/EvidenceNotesPanel'
 
 // ----------------------
 // Helpers
@@ -307,7 +309,7 @@ export default function CaseView() {
 					</Typography>
 				)}
 
-				{/* Evidence Upload Form */}
+				{/* ==================== Evidence Upload Form ==================== */}
 				<Box
 					sx={{
 						mt: 4,
@@ -321,7 +323,7 @@ export default function CaseView() {
 				</Box>
 			</Box>
 
-			{/* ---------------------- Reports ---------------------- */}
+			{/* ==================== Reports ==================== */}
 			<Box sx={{ mt: 4 }}>
 				<Typography variant='h6' gutterBottom>
 					Reports
@@ -352,7 +354,10 @@ export default function CaseView() {
 				)}
 			</Box>
 
-			{/* ---------------------- Viewer Modal ---------------------- */}
+			{/* ==================== Notes Panel ==================== */}
+			<NotesPanel caseId={caseData.id} />
+
+			{/* ==================== Viewer Modal ==================== */}
 			<Dialog open={viewerOpen} onClose={closeViewer} maxWidth='lg' fullWidth>
 				<Box sx={{ p: 2 }}>
 					{/* Main Evidence Viewer */}
@@ -425,6 +430,7 @@ export default function CaseView() {
 						)}
 				</Box>
 			</Dialog>
+			{/* ==================== Evidence Drawer ==================== */}
 			<Drawer
 				anchor='right'
 				open={drawerOpen}
@@ -526,7 +532,11 @@ export default function CaseView() {
 							</Box>
 						</>
 					)}
-				</Box>
+					{/* Evidence Notes Panel */}
+					{selectedEvidence && selectedEvidence.id && (
+						<EvidenceNotesPanel caseId={id} evidenceId={selectedEvidence.id} />
+					)}
+				</Box>				
 			</Drawer>
 		</Box>
 	)

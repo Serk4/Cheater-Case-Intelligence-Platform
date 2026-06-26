@@ -61,9 +61,9 @@ enum EvidenceStatus {
 }
 
 enum NoteVisibility {
-  INTERNAL       // ANALYST and above
-  RESTRICTED     // SENIOR_ANALYST and above
-  CONFIDENTIAL   // ADMIN only
+  INTERNAL // ANALYST and above
+  RESTRICTED // SENIOR_ANALYST and above
+  CONFIDENTIAL // ADMIN only
 }
 
 // ─────────────────────────────────────────
@@ -72,8 +72,8 @@ enum NoteVisibility {
 
 model Game {
   id        String   @id @default(cuid())
-  name      String                         // "Apex Legends"
-  slug      String   @unique               // "apex-legends"
+  name      String // "Apex Legends"
+  slug      String   @unique // "apex-legends"
   logoUrl   String?
   metadata  Json?
   isActive  Boolean  @default(true)
@@ -96,14 +96,14 @@ model Game {
 // ─────────────────────────────────────────
 
 model Platform {
-  id                  String   @id @default(cuid())
-  gameId              String?                       // null = cross-game platform
-  name                String                        // "Steam"
-  slug                String   @unique              // "steam"
-  profileUrlTemplate  String?
+  id                 String   @id @default(cuid())
+  gameId             String? // null = cross-game platform
+  name               String // "Steam"
+  slug               String   @unique // "steam"
+  profileUrlTemplate String?
   // e.g. "https://steamcommunity.com/profiles/{{externalId}}"
-  isActive            Boolean  @default(true)
-  createdAt           DateTime @default(now())
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
 
   game     Game?     @relation(fields: [gameId], references: [id])
   subjects Subject[]
@@ -120,15 +120,15 @@ model Platform {
 model ViolationType {
   id          String       @id @default(cuid())
   gameId      String
-  name        String                              // "Aimbot"
-  slug        String                              // "aimbot"
+  name        String // "Aimbot"
+  slug        String // "aimbot"
   description String?
-  severity    CasePriority @default(MEDIUM)       // reuses stable enum
-  color       String       @default("#6B7280")    // hex color for UI badge
+  severity    CasePriority @default(MEDIUM) // reuses stable enum
+  color       String       @default("#6B7280") // hex color for UI badge
   isActive    Boolean      @default(true)
   createdAt   DateTime     @default(now())
 
-  game  Game               @relation(fields: [gameId], references: [id])
+  game  Game                @relation(fields: [gameId], references: [id])
   cases CaseViolationType[]
 
   @@unique([gameId, slug])
@@ -141,7 +141,7 @@ model CaseViolationType {
   caseId          String
   violationTypeId String
 
-  case          Case          @relation(fields: [caseId],          references: [id], onDelete: Cascade)
+  case          Case          @relation(fields: [caseId], references: [id], onDelete: Cascade)
   violationType ViolationType @relation(fields: [violationTypeId], references: [id], onDelete: Cascade)
 
   @@id([caseId, violationTypeId])
@@ -156,10 +156,10 @@ model CaseViolationType {
 model SanctionTemplate {
   id           String   @id @default(cuid())
   gameId       String
-  name         String                       // "Permanent Hardware Ban"
-  slug         String                       // "permanent-hardware-ban"
+  name         String // "Permanent Hardware Ban"
+  slug         String // "permanent-hardware-ban"
   description  String?
-  durationDays Int?                         // null = permanent
+  durationDays Int? // null = permanent
   isAppealable Boolean  @default(true)
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
@@ -180,10 +180,10 @@ model SanctionTemplate {
 model IntegrationSource {
   id         String   @id @default(cuid())
   gameId     String
-  name       String                       // "Easy Anti-Cheat"
-  slug       String                       // "easy-anti-cheat"
+  name       String // "Easy Anti-Cheat"
+  slug       String // "easy-anti-cheat"
   webhookUrl String?
-  apiKeyHash String?                      // hashed — never store plaintext
+  apiKeyHash String? // hashed — never store plaintext
   isActive   Boolean  @default(true)
   createdAt  DateTime @default(now())
 
@@ -245,17 +245,17 @@ model Case {
   updatedAt    DateTime     @updatedAt
   deletedAt    DateTime?
 
-  game       Game  @relation(fields: [gameId],       references: [id])
+  game       Game  @relation(fields: [gameId], references: [id])
   assignedTo User? @relation("CaseAssignedTo", fields: [assignedToId], references: [id])
-  openedBy   User  @relation("CaseOpenedBy",   fields: [openedById],   references: [id])
+  openedBy   User  @relation("CaseOpenedBy", fields: [openedById], references: [id])
 
-  subjects        Subject[]
-  reports         Report[]
-  evidence        Evidence[]
-  notes           Note[]
-  verdict         Verdict?
-  violationTypes  CaseViolationType[]
-  auditLogs       AuditLog[]
+  subjects       Subject[]
+  reports        Report[]
+  evidence       Evidence[]
+  notes          Note[]
+  verdict        Verdict?
+  violationTypes CaseViolationType[]
+  auditLogs      AuditLog[]
 
   @@index([gameId])
   @@index([caseNumber])
@@ -276,13 +276,13 @@ model Subject {
   caseId      String
   platformId  String
   displayName String
-  externalId  String?                     // player ID on the external platform
-  profileUrl  String?                     // auto-built from Platform.profileUrlTemplate
+  externalId  String? // player ID on the external platform
+  profileUrl  String? // auto-built from Platform.profileUrlTemplate
   metadata    Json?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  case     Case     @relation(fields: [caseId],     references: [id], onDelete: Cascade)
+  case     Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
   platform Platform @relation(fields: [platformId], references: [id])
 
   @@index([caseId])
@@ -299,15 +299,15 @@ model Report {
   id                  String    @id @default(cuid())
   caseId              String
   reportedById        String
-  integrationSourceId String?                        // null = entered manually
+  integrationSourceId String? // null = entered manually
   summary             String
   detail              String?   @db.Text
   incidentAt          DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
-  case              Case               @relation(fields: [caseId],              references: [id], onDelete: Cascade)
-  reportedBy        User               @relation(fields: [reportedById],        references: [id])
+  case              Case               @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  reportedBy        User               @relation(fields: [reportedById], references: [id])
   integrationSource IntegrationSource? @relation(fields: [integrationSourceId], references: [id])
 
   @@index([caseId])
@@ -335,9 +335,10 @@ model Evidence {
   updatedAt    DateTime       @updatedAt
   deletedAt    DateTime?
 
-  case        Case         @relation(fields: [caseId],       references: [id], onDelete: Cascade)
+  case        Case         @relation(fields: [caseId], references: [id], onDelete: Cascade)
   uploadedBy  User         @relation(fields: [uploadedById], references: [id])
   attachments Attachment[]
+  notes       Note[]
 
   @@index([caseId])
   @@index([uploadedById])
@@ -362,7 +363,7 @@ model Attachment {
   createdAt  DateTime @default(now())
 
   evidence Evidence? @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
-  note     Note?     @relation(fields: [noteId],     references: [id], onDelete: Cascade)
+  note     Note?     @relation(fields: [noteId], references: [id], onDelete: Cascade)
 
   // Constraint: exactly one of evidenceId or noteId must be set.
   // Enforce with a DB check constraint (see §8).
@@ -379,6 +380,7 @@ model Attachment {
 model Note {
   id         String         @id @default(cuid())
   caseId     String
+  evidenceId String?
   authorId   String
   body       String         @db.Text
   isPinned   Boolean        @default(false)
@@ -387,7 +389,8 @@ model Note {
   updatedAt  DateTime       @updatedAt
   deletedAt  DateTime?
 
-  case        Case         @relation(fields: [caseId],   references: [id], onDelete: Cascade)
+  case        Case         @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  evidence    Evidence?    @relation(fields: [evidenceId], references: [id])
   author      User         @relation(fields: [authorId], references: [id])
   attachments Attachment[]
 
@@ -402,19 +405,19 @@ model Note {
 // ─────────────────────────────────────────
 
 model Verdict {
-  id                 String   @id @default(cuid())
-  caseId             String   @unique
+  id                 String    @id @default(cuid())
+  caseId             String    @unique
   sanctionTemplateId String
   renderedById       String
-  rationale          String   @db.Text
-  effectiveAt        DateTime @default(now())
-  expiresAt          DateTime?               // derived from SanctionTemplate.durationDays
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  rationale          String    @db.Text
+  effectiveAt        DateTime  @default(now())
+  expiresAt          DateTime? // derived from SanctionTemplate.durationDays
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  case             Case             @relation(fields: [caseId],             references: [id], onDelete: Cascade)
+  case             Case             @relation(fields: [caseId], references: [id], onDelete: Cascade)
   sanctionTemplate SanctionTemplate @relation(fields: [sanctionTemplateId], references: [id])
-  renderedBy       User             @relation(fields: [renderedById],       references: [id])
+  renderedBy       User             @relation(fields: [renderedById], references: [id])
 
   @@index([caseId])
   @@index([sanctionTemplateId])
@@ -440,7 +443,7 @@ model AuditLog {
   createdAt  DateTime @default(now())
 
   actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
-  case  Case? @relation(fields: [caseId],  references: [id], onDelete: SetNull)
+  case  Case? @relation(fields: [caseId], references: [id], onDelete: SetNull)
 
   @@index([actorId])
   @@index([caseId])

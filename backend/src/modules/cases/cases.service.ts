@@ -5,7 +5,6 @@ import { UpdateCaseDto } from './dto/update-case.dto';
 import { CaseListQueryDto } from './dto/case-list.query.dto';
 import { CreateNoteDto } from './dto/create-note.dto';
 import { CreateEvidenceDto } from './dto/create-evidence.dto';
-import { Express } from 'express';
 
 @Injectable()
 export class CasesService {

@@ -1,21 +1,7 @@
-import {
-  IsBoolean,
-  IsEnum,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-} from 'class-validator';
+import { IsBoolean, IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { NoteVisibility } from '@prisma/client';
 
 export class CreateNoteDto {
-  @IsString()
-  @IsNotEmpty()
-  caseId: string;
-
-  @IsString()
-  @IsNotEmpty()
-  authorId: string;
-
   @IsString()
   @IsNotEmpty()
   body: string;
@@ -28,4 +14,3 @@ export class CreateNoteDto {
   @IsOptional()
   visibility?: NoteVisibility;
 }
-

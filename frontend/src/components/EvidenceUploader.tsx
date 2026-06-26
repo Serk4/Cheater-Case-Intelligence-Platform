@@ -45,7 +45,7 @@ export default function EvidenceUploader({
 		formData.append('title', title)
 		formData.append('description', description)
 		formData.append('evidenceType', evidenceType)
-		formData.append('uploadedById', 'cmqqz13vg0003u06k4cgzokut')
+		formData.append('uploadedById', 'system-ingest-user')
 
 		try {
 			await apiClient.uploadEvidence(caseId, formData)

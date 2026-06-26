@@ -1,4 +1,5 @@
 import {
+	Req,
 	Body,
 	Controller,
 	Get,
@@ -15,16 +16,9 @@ import { UpdateCaseDto } from './dto/update-case.dto'
 import { CaseListQueryDto } from './dto/case-list.query.dto'
 import { CreateNoteDto } from './dto/create-note.dto'
 import { FilesInterceptor } from '@nestjs/platform-express'
-import {
-	UploadedFile,
-	UploadedFiles,
-	UseInterceptors,
-	BadRequestException,
-} from '@nestjs/common'
+import { UploadedFiles, UseInterceptors, BadRequestException } from '@nestjs/common'
 import { CreateEvidenceDto } from './dto/create-evidence.dto'
-import { Express } from 'express'
 import * as path from 'path'
-import { Req } from '@nestjs/common'
 import { diskStorage } from 'multer'
 
 @Controller('cases')
