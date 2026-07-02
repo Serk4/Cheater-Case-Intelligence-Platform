@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsJSON, IsOptional, IsBoolean } from 'class-validator';
+import { IsNotEmpty, IsString, IsOptional, IsBoolean } from 'class-validator';
 
 export class CreateGameDto {
   @IsString()
@@ -11,7 +11,11 @@ export class CreateGameDto {
 
   @IsString()
   @IsNotEmpty()
-  logoUrl: string;
+  shortCode: string;
+
+  @IsOptional()
+  @IsString()
+  logoUrl?: string;
 
   @IsOptional()
   metadata?: any;

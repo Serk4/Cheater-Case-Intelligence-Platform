@@ -13,7 +13,7 @@ export class CreateCaseDto {
 
   @IsString()
   @IsNotEmpty()
-  caseNumber: string;
+  subjectId: string;
 
   @IsString()
   @IsNotEmpty()
@@ -38,6 +38,10 @@ export class CreateCaseDto {
   @IsString()
   @IsNotEmpty()
   openedById: string;
+
+  @IsString()
+  @IsNotEmpty()
+  platformId: string;
 
   @IsOptional()
   metadata?: any;

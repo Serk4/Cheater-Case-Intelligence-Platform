@@ -20,11 +20,18 @@ import { UploadedFiles, UseInterceptors, BadRequestException } from '@nestjs/com
 import { CreateEvidenceDto } from './dto/create-evidence.dto'
 import * as path from 'path'
 import { diskStorage } from 'multer'
+import { console } from 'inspector/promises'
 
 @Controller('cases')
 @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
 export class CasesController {
 	constructor(private readonly casesService: CasesService) {}
+
+	@Post()
+	create(@Body() dto: CreateCaseDto) {
+		console.log('Creating case with DTO:', dto)
+		return this.casesService.create(dto)
+	}
 
 	@Post(':caseId/evidence')
 	@UseInterceptors(
@@ -96,17 +103,7 @@ export class CasesController {
 	@Get()
 	findAll() {
 		return this.casesService.findAll()
-	}
-
-	//@Get(':id')
-	//findOne(@Param('id') id: string) {
-	//  return this.casesService.findOne(id);
-	//}
-
-	@Post()
-	create(@Body() dto: CreateCaseDto) {
-		return this.casesService.create(dto)
-	}
+	}	
 
 	@Patch(':id')
 	update(@Param('id') id: string, @Body() dto: UpdateCaseDto) {

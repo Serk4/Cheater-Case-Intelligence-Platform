@@ -6,7 +6,7 @@ import {
   Drawer,
   List,
   ListItemButton,
-  ListItemText,
+  ListItemText
 } from '@mui/material';
 import {
   BrowserRouter,
@@ -19,6 +19,7 @@ import Dashboard from './pages/Dashboard';
 import Cases from './pages/Cases';
 import CaseView from './pages/CaseView';
 import ReportIntake from './pages/ReportIntake';
+import NewCase from './pages/NewCase';
 
 const drawerWidth = 260;
 
@@ -73,6 +74,7 @@ function Layout() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/cases" element={<Cases />} />
+          <Route path="/cases/new" element={<NewCase />} />
           <Route path="/cases/:id" element={<CaseView />} />
           <Route path="/reports" element={<ReportIntake />} />
         </Routes>
@@ -84,7 +86,7 @@ function Layout() {
 export default function App() {
   return (
     <BrowserRouter>
-      <Layout />
+        <Layout />
     </BrowserRouter>
   );
 }

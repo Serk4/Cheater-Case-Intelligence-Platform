@@ -74,6 +74,7 @@ model Game {
   id        String   @id @default(cuid())
   name      String // "Apex Legends"
   slug      String   @unique // "apex-legends"
+  shortCode String   @unique
   logoUrl   String?
   metadata  Json?
   isActive  Boolean  @default(true)
@@ -245,11 +246,15 @@ model Case {
   updatedAt    DateTime     @updatedAt
   deletedAt    DateTime?
 
+  // RELATIONS
   game       Game  @relation(fields: [gameId], references: [id])
+
   assignedTo User? @relation("CaseAssignedTo", fields: [assignedToId], references: [id])
   openedBy   User  @relation("CaseOpenedBy", fields: [openedById], references: [id])
 
-  subjects       Subject[]
+  // ⭐ Correct many‑to‑many Subject relation
+  subjects   Subject[] @relation("CaseToSubject")
+
   reports        Report[]
   evidence       Evidence[]
   notes          Note[]
@@ -257,6 +262,7 @@ model Case {
   violationTypes CaseViolationType[]
   auditLogs      AuditLog[]
 
+  // INDEXES
   @@index([gameId])
   @@index([caseNumber])
   @@index([status])
@@ -264,6 +270,7 @@ model Case {
   @@index([assignedToId])
   @@index([openedById])
   @@index([openedAt])
+
   @@map("cases")
 }
 
@@ -273,23 +280,22 @@ model Case {
 
 model Subject {
   id          String   @id @default(cuid())
-  caseId      String
-  platformId  String
   displayName String
-  externalId  String? // player ID on the external platform
-  profileUrl  String? // auto-built from Platform.profileUrlTemplate
+  externalId  String?  @unique
+  profileUrl  String?
+  platformId  String
   metadata    Json?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  case     Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
   platform Platform @relation(fields: [platformId], references: [id])
+  cases    Case[]   @relation("CaseToSubject")
 
-  @@index([caseId])
   @@index([platformId])
   @@index([externalId])
   @@map("subjects")
 }
+
 
 // ─────────────────────────────────────────
 // REPORT

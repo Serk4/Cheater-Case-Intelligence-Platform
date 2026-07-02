@@ -5,10 +5,12 @@ import { UpdateCaseDto } from './dto/update-case.dto';
 import { CaseListQueryDto } from './dto/case-list.query.dto';
 import { CreateNoteDto } from './dto/create-note.dto';
 import { CreateEvidenceDto } from './dto/create-evidence.dto';
+import { CasePriority, CaseStatus } from '@prisma/client/index-browser';
+import { CaseNumberService } from './case-number.service';
 
 @Injectable()
 export class CasesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private caseNumberService: CaseNumberService) {}
 
   findAll() {
     return this.prisma.case.findMany({
@@ -45,16 +47,31 @@ export class CasesService {
     });
   }
 
-  create(data: CreateCaseDto) {
-    return this.prisma.case.create({
-      data,
-      include: {
-        game: true,
-        assignedTo: true,
-        openedBy: true,
+  async create(dto: CreateCaseDto) {
+  const caseNumber = await this.caseNumberService.generate(dto.gameId);
+
+  // Log the generated case number and the DTO for debugging
+  console.log('Generated case number:', caseNumber);
+  console.log('Creating case with DTO:', dto);
+
+  return this.prisma.case.create({
+      data: {
+        caseNumber,
+        title: dto.title,
+        description: dto.description,
+        status: dto.status ?? CaseStatus.OPEN,
+        priority: dto.priority ?? CasePriority.MEDIUM,
+        gameId: dto.gameId,
+        openedById: dto.openedById,
+        assignedToId: dto.assignedToId,
+        metadata: dto.metadata,
+        subjects: {
+          connect: { id: dto.subjectId },
+        },
       },
     });
   }
+  
 
   update(id: string, data: UpdateCaseDto) {
     return this.prisma.case.update({
@@ -139,7 +156,6 @@ export class CasesService {
 
   async getCaseSubjects(caseId: string) {
     return this.prisma.subject.findMany({
-      where: { caseId },
       include: { platform: true },
     });
   }

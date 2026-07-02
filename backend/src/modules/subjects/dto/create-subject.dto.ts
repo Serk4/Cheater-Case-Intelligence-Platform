@@ -3,10 +3,6 @@ import { IsNotEmpty, IsOptional, IsString, IsJSON } from 'class-validator';
 export class CreateSubjectDto {
   @IsString()
   @IsNotEmpty()
-  caseId: string;
-
-  @IsString()
-  @IsNotEmpty()
   platformId: string;
 
   @IsString()

@@ -7,11 +7,12 @@ import {
 	TableCell,
 	TableBody,
 	Paper,
+	Box,
+	Button,
 } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import { renderCaseStatus } from '../utils/enums'
-
 
 interface Case {
 	caseNumber: string
@@ -23,6 +24,7 @@ interface Case {
 export default function Cases() {
 	const [cases, setCases] = useState<Case[]>([])
 	const navigate = useNavigate()
+	const user = { role: 'ANALYST' } // Replace with actual user role from your auth context or state
 
 	useEffect(() => {
 		fetch('http://localhost:3000/cases')
@@ -33,10 +35,14 @@ export default function Cases() {
 
 	return (
 		<>
-			<Typography variant='h5' gutterBottom>
-				Cases
-			</Typography>
-
+			<Box display='flex' justifyContent='space-between' alignItems='center' mb={2}>
+				<Typography variant='h5'>Cases</Typography>
+				{['ANALYST', 'SENIOR_ANALYST', 'ADMIN'].includes(user.role) && (
+					<Button variant='contained' onClick={() => navigate('/cases/new')}>
+						New Case
+					</Button>
+				)}
+			</Box>
 			<Paper sx={{ width: '100%', overflow: 'hidden' }}>
 				<Table>
 					<TableHead>
