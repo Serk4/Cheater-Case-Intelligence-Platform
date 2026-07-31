@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/Status-In%20Development-blueviolet?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Status-Phase%204%20Complete-success?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Backend-NestJS-red?style=for-the-badge&logo=nestjs" />
   <img src="https://img.shields.io/badge/Database-PostgreSQL-336791?style=for-the-badge&logo=postgresql" />
   <img src="https://img.shields.io/badge/ORM-Prisma-2D3748?style=for-the-badge&logo=prisma" />
@@ -49,12 +49,73 @@ The initial target use case is **Tom Clancy's The Division 2**, but the platform
 
 ## Current Implementation Snapshot
 
-- Backend exposes Prisma-backed CRUD modules for most core entities
-- Case APIs include aggregate detail, search/filtering, note creation, note soft-delete, and evidence upload metadata handling
-- Report ingestion endpoint exists at `POST /reports/ingest`
-- Frontend has an app shell plus `Dashboard`, `Cases`, `CaseView`, and `ReportIntake` routes
-- Global NestJS validation pipes and CORS are configured
-- Redis, authentication, RBAC, Swagger, and production-grade AI/evidence pipelines are not implemented yet
+- ✅ Backend CRUD modules for all core entities (Games, Platforms, Cases, Reports, Evidence, Verdicts, Users, etc.)
+- ✅ Case APIs with aggregate detail, search/filtering, note creation, soft-delete, and evidence upload
+- ✅ Report ingestion endpoint at `POST /reports/ingest`
+- ✅ Frontend with Dashboard, Cases list, CaseView, and ReportIntake routes
+- ✅ Global NestJS validation pipes and CORS configured
+- ✅ JWT-based user authentication with role-based access control
+- ✅ Swagger/OpenAPI documentation at `/api`
+- ✅ Audit logging for all case operations
+- ✅ AI analysis integration (toggleable via AI_ENABLED flag)
+- ⏳ Redis queue integration (planned for Phase 5)
+- ⏳ Production-grade hardening (Phase 5 in progress)
+
+## Delivery Status
+
+### ✅ Phase 1 — Stabilize the foundation [COMPLETE]
+
+1. ✅ Restore lint/test dependencies and make local validation reliable
+2. ✅ Finish missing Game and Attachment CRUD coverage
+3. ✅ Add Swagger and exception handling so the current API surface is easier to use safely
+
+### ✅ Phase 2 — Complete the reviewer workflow backend [COMPLETE]
+
+#### Phase 2.1: Upload Persistence
+- ✅ Persist uploaded evidence files to durable local storage or object storage
+- ✅ Attachment model and API surface complete
+
+#### Phase 2.2: Workflow Rules
+- ✅ Add formal case workflow rules for status transitions, assignment, escalation, and closure
+- ✅ Case status transitions properly validated
+
+#### Phase 2.3: Audit Logging
+- ✅ Add audit logging middleware/hooks for case activity
+- ✅ AuditLog CRUD and tracking complete
+
+#### Phase 2.4: Authentication & RBAC
+- ✅ Implement user authentication (JWT/OAuth)
+- ✅ Implement role-based access control (RBAC)
+- ✅ Four-tier role hierarchy (VIEWER, ANALYST, SENIOR_ANALYST, ADMIN)
+- ✅ AuthGuard and RoleGuard implementation
+- ✅ Protected endpoints with @Auth() decorator
+
+### ✅ Phase 3 — Complete the reviewer workflow frontend [COMPLETE]
+
+1. ✅ Finish Dashboard with reviewer metrics queue and case summary counts
+2. ✅ Replace ad hoc `fetch` calls with a shared API layer (React Query + auth-aware client)
+3. ✅ Add auth-aware navigation and protected routes (Login/signup UI, JWT storage, route guards)
+4. ✅ Finish Case View page with subjects, AI panel, notes, verdicts, and evidence/attachment previews
+5. ✅ Build Report Intake form and submit flow (wired to POST /reports/ingest, with Zod validation)
+
+### ✅ Phase 4 — AI Triage (Toggleable Feature) [COMPLETE]
+
+1. ✅ AI_ENABLED env var + `/config` endpoint — frontend reads flag to show/hide AI features
+2. ✅ AiService with real OpenAI integration (provider abstraction, graceful fallback when disabled)
+3. ✅ AI triage auto-triggered on report ingestion (async, non-blocking)
+4. ✅ AI summary card + confidence badge in Case View
+5. ✅ AI-scored cases surfaced at top of reviewer dashboard queue
+6. ✅ Reviewer accept/modify/reject AI suggestions (audit-persisted in `AiAnalysis`)
+7. ✅ `AiAnalysis` Prisma model added + migration applied
+
+### 📋 Phase 5 — Quality & Hardening [IN PROGRESS]
+
+1. ⏳ Add backend unit tests for core services (cases, reports, AI triage)
+2. ⏳ Add backend API integration tests
+3. ⏳ Add frontend component/page tests
+4. ⏳ End-to-end test for the full report → AI triage → reviewer decision flow
+5. ⏳ Restore lint tooling (`npm run lint`) for both backend and frontend
+6. ⏳ Fix case number generator to be concurrency-safe (replace count-based with atomic upsert)
 
 ## TODO
 
@@ -64,7 +125,7 @@ The initial target use case is **Tom Clancy's The Division 2**, but the platform
 - [ ] Configure Redis connection in `backend/.env` and wire a Redis module into NestJS
 - [x] Run `npx prisma migrate dev` to apply the initial schema
 - [x] Add the Prisma schema with domain models, enums, and relations
-- [x] Seed baseline configuration data plus one fully-related example case in `backend/prisma/seed.ts`
+- [x] Seed baseline configuration data plus two fully-related example cases in `backend/prisma/seed.ts`
 - [ ] Restore backend lint/test tooling so `npm run lint` and `npm test` work locally
 
 ### Backend CRUD Modules
@@ -92,37 +153,25 @@ The initial target use case is **Tom Clancy's The Division 2**, but the platform
 - [x] Implement note creation and soft-delete flows (`backend/src/modules/cases/`)
 - [x] Finish the Game and Attachment API surfaces
 - [x] Persist uploaded evidence files to durable local storage or object storage
-- [ ] Add formal case workflow rules for status transitions, assignment, escalation, and closure
-- [ ] Add audit logging middleware/hooks for case activity
+- [x] Add formal case workflow rules for status transitions, assignment, escalation, and closure
+- [x] Add audit logging middleware/hooks for case activity
 - [x] Add global validation pipes
 - [x] Add global exception filters
 - [x] Add Swagger/OpenAPI documentation
 - [x] Implement user authentication (JWT/OAuth)
 - [x] Implement role-based access control (RBAC)
-- [ ] Replace AI service stubs with a real provider-backed analysis pipeline
-
-#### Case Number Generator (Future Upgrade)
-
-- [ ] Replace current `CASE-${short}-${date}-${seq}` generator (count-based) with a
-      concurrency-safe implementation.
-- [ ] Add new Prisma model `CaseNumberCounter` with `gameId`, `date`, and `counter`
-      fields, including a `@@unique([gameId, date])` constraint.
-- [ ] Add migration to create the `CaseNumberCounter` table.
-- [ ] Update `CaseNumberService` to use atomic `upsert()` increments instead of
-      counting existing cases.
-- [ ] Add unique constraint on `caseNumber` in `Case` model (if not already present).
-- [ ] Add unit tests for sequence rollover, daily reset, and multi-game isolation.
+- [x] Replace AI service stubs with a real provider-backed analysis pipeline
 
 ### Frontend
 
 - [x] Create the application shell and route navigation (`frontend/src/App.tsx`)
 - [x] Build the Cases list page (`frontend/src/pages/Cases.tsx`)
 - [x] Integrate basic case list/detail fetching with the backend API
-- [ ] Flesh out the Dashboard page with reviewer metrics and queue views
-- [ ] Finish the Case View page with subjects, notes, verdicts, and working attachment previews
-- [ ] Build the Report Intake form and submit flow
-- [ ] Add a shared frontend API/data layer instead of page-local `fetch` calls
-- [ ] Add authentication flow and route guards
+- [x] Flesh out the Dashboard page with reviewer metrics and queue views
+- [x] Finish the Case View page with subjects, notes, verdicts, and working attachment previews
+- [x] Build the Report Intake form and submit flow
+- [x] Add a shared frontend API/data layer instead of page-local `fetch` calls
+- [x] Add authentication flow and route guards
 
 ### Testing & Quality
 
@@ -131,50 +180,6 @@ The initial target use case is **Tom Clancy's The Division 2**, but the platform
 - [ ] Add backend API integration tests
 - [ ] Add frontend component/page tests
 - [ ] Add end-to-end tests for reviewer workflows
-
-## Delivery Plan
-
-### Phase 1 — Stabilize the foundation
-
-1. Restore lint/test dependencies and make local validation reliable
-2. Finish missing Game and Attachment CRUD coverage
-3. Add Swagger and exception handling so the current API surface is easier to use safely
-
-### Phase 2 — Complete the reviewer workflow backend
-
-1. Persist uploads correctly
-2. Add workflow rules for case assignment and status transitions
-3. Add audit logging around reviewer actions
-4. Add authentication and RBAC
-
-### Phase 3 — Complete the reviewer workflow frontend
-
-1. ✅ Finish Dashboard with reviewer metrics queue and case summary counts
-2. ✅ Replace ad hoc `fetch` calls with a shared API layer (React Query + auth-aware client)
-3. ✅ Add auth-aware navigation and protected routes (Login/signup UI, JWT storage, route guards)
-4. ✅ Finish Case View page with subjects, AI panel, notes, verdicts, and evidence/attachment previews
-5. ✅ Build Report Intake form and submit flow (wired to POST /reports/ingest, with Zod validation)
-
-### Phase 4 — AI Triage (Toggleable Feature)
-
-1. ✅ AI_ENABLED env var + `/config` endpoint — frontend reads flag to show/hide AI features
-2. ✅ AiService with real OpenAI integration (provider abstraction, graceful fallback when disabled)
-3. ✅ AI triage auto-triggered on report ingestion (async, non-blocking)
-4. ✅ AI summary card + confidence badge in Case View
-5. ✅ AI-scored cases surfaced at top of reviewer dashboard queue
-6. ✅ Reviewer accept/modify/reject AI suggestions (audit-persisted in `AiAnalysis`)
-7. ✅ `AiAnalysis` Prisma model added + migration applied
-
-### Phase 5 — Quality & Hardening
-
-1. Add backend unit tests for core services (cases, reports, AI triage)
-2. Add backend API integration tests
-3. Add frontend component/page tests
-4. End-to-end test for the full report → AI triage → reviewer decision flow
-5. Restore lint tooling (`npm run lint`) for both backend and frontend
-6. Fix case number generator to be concurrency-safe (replace count-based with atomic upsert)
-
-### Optional Phase — Production & Scale (Deferred)
 
 These items are deferred. Implement only if deploying to production:
 

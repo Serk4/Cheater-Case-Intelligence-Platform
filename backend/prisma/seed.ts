@@ -746,6 +746,372 @@ async function main() {
 		],
 	})
 
+	// ─────────────────────────────────────────
+	// SECOND CASE - COMPLETED
+	// ─────────────────────────────────────────
+
+	const CASE_NUMBER_2 = 'CASE-R6-0002'
+	const OPENED_AT_2 = new Date('2026-05-20T09:15:00.000Z')
+	const CLOSED_AT_2 = new Date('2026-06-10T16:45:00.000Z')
+	const INCIDENT_AT_2 = new Date('2026-05-19T22:30:00.000Z')
+	const CAPTURED_AT_2 = new Date('2026-05-19T22:25:00.000Z')
+	const EFFECTIVE_AT_2 = new Date('2026-05-21T00:00:00.000Z')
+	const EXPIRES_AT_2 = new Date('2026-05-28T23:59:59.000Z')
+
+	const completedCase = await prisma.case.create({
+		data: {
+			gameId: r6.id,
+			caseNumber: CASE_NUMBER_2,
+			title: 'Coordinated spawn-camping exploitation in ranked match',
+			description:
+				'Squad of four players reported for coordinated exploitation of spawn mechanics in high-MMR ranked match. Evidence shows repeated use of map geometry to prevent enemy spawns while maintaining positioning advantage.',
+			status: 'CLOSED',
+			priority: 'MEDIUM',
+			assignedToId: reviewer.id,
+			openedById: analyst.id,
+			openedAt: OPENED_AT_2,
+			closedAt: CLOSED_AT_2,
+			metadata: {
+				map: 'Coastline',
+				region: 'EU',
+				squadSize: 4,
+				confidenceBand: 'high',
+				mmrRange: '5000-5500',
+				reportCount: 12,
+				closedByAdmin: admin.id,
+			},
+		},
+	})
+
+	// Subjects for completed case
+	const exploiterSubject1 = await prisma.subject.create({
+		data: {
+			platformId: playStationNetwork.id,
+			displayName: 'ExploiterPro42',
+			externalId: 'PSN-EXPLOIT-001',
+			profileUrl: 'https://psnprofiles.com/PSN-EXPLOIT-001',
+			metadata: {
+				roleInCase: 'accused',
+				accountAge: '3 years',
+				previousViolations: 1,
+			},
+		},
+	})
+
+	const exploiterSubject2 = await prisma.subject.create({
+		data: {
+			platformId: playStationNetwork.id,
+			displayName: 'TacticalGamer88',
+			externalId: 'PSN-TACTICAL-002',
+			profileUrl: 'https://psnprofiles.com/PSN-TACTICAL-002',
+			metadata: {
+				roleInCase: 'accused',
+				accountAge: '5 years',
+				previousViolations: 0,
+			},
+		},
+	})
+
+	// Violation types for completed case
+	const mapExploit = await prisma.violationType.upsert({
+		where: {
+			gameId_slug: {
+				gameId: r6.id,
+				slug: 'map-exploit',
+			},
+		},
+		update: {
+			name: 'Map Exploit',
+			description: 'Abusing map geometry or unintended positions.',
+			severity: 'MEDIUM',
+			color: '#F59E0B',
+			isActive: true,
+		},
+		create: {
+			gameId: r6.id,
+			name: 'Map Exploit',
+			slug: 'map-exploit',
+			description: 'Abusing map geometry or unintended positions.',
+			severity: 'MEDIUM',
+			color: '#F59E0B',
+		},
+	})
+
+	const coordinatedCheating = await prisma.violationType.upsert({
+		where: {
+			gameId_slug: {
+				gameId: r6.id,
+				slug: 'coordinated-cheating',
+			},
+		},
+		update: {
+			name: 'Coordinated Cheating',
+			description: 'Multiple players working together to exploit game mechanics.',
+			severity: 'HIGH',
+			color: '#EF4444',
+			isActive: true,
+		},
+		create: {
+			gameId: r6.id,
+			name: 'Coordinated Cheating',
+			slug: 'coordinated-cheating',
+			description: 'Multiple players working together to exploit game mechanics.',
+			severity: 'HIGH',
+			color: '#EF4444',
+		},
+	})
+
+	// Link violations to case
+	await prisma.caseViolationType.createMany({
+		data: [
+			{ caseId: completedCase.id, violationTypeId: mapExploit.id },
+			{ caseId: completedCase.id, violationTypeId: coordinatedCheating.id },
+		],
+	})
+
+	// Reports for completed case
+	const matchReport = await prisma.report.create({
+		data: {
+			caseId: completedCase.id,
+			reportedById: systemIngestUser.id,
+			integrationSourceId: inGameReport.id,
+			summary: 'In-match report: Squad prevented spawns using geometry exploit.',
+			detail:
+				'Match observer noted that the squad systematically prevented enemy team from spawning in viable locations by exploiting map collision geometry. Documented with 6 timestamped instances.',
+			incidentAt: INCIDENT_AT_2,
+		},
+	})
+
+	await prisma.report.create({
+		data: {
+			caseId: completedCase.id,
+			reportedById: analyst.id,
+			integrationSourceId: customerSupportPortal.id,
+			summary: 'Customer support escalation: Affected player appeal.',
+			detail:
+				'Losing team captain submitted formal appeal with video evidence of blocked spawn positions. Provided detailed match timeline and spawn location analysis.',
+			incidentAt: INCIDENT_AT_2,
+		},
+	})
+
+	// Evidence for completed case
+	const regressionVideo = await prisma.evidence.create({
+		data: {
+			caseId: completedCase.id,
+			uploadedById: analyst.id,
+			title: 'Full match replay - spawn blocking sequence',
+			description:
+				'Complete match replay demonstrating coordinated spawn-blocking exploits across all objective rounds.',
+			evidenceType: 'VIDEO',
+			status: 'VERIFIED',
+			capturedAt: CAPTURED_AT_2,
+			metadata: {
+				durationSeconds: 3847,
+				source: 'match_replay',
+				suspectedBehavior: ['spawn_blocking', 'geometry_abuse', 'coordination'],
+				locations: ['Coastline', 'obj_secure', 'obj_extract'],
+			},
+		},
+	})
+
+	await prisma.attachment.create({
+		data: {
+			evidenceId: regressionVideo.id,
+			fileName: 'coastline-full-match.mp4',
+			mimeType: 'video/mp4',
+			sizeBytes: 487592104,
+			storageKey: `seed/evidence/${regressionVideo.id}/coastline-full-match.mp4`,
+			storageUrl: `/uploads/evidence/${regressionVideo.id}/coastline-full-match.mp4`,
+		},
+	})
+
+	const analysisDocument = await prisma.evidence.create({
+		data: {
+			caseId: completedCase.id,
+			uploadedById: reviewer.id,
+			title: 'Technical analysis: Spawn position validation',
+			description:
+				'Frame-by-frame technical analysis of spawn blocking behavior with position coordinates.',
+			evidenceType: 'LOG_FILE',
+			status: 'VERIFIED',
+			capturedAt: new Date('2026-06-05T14:20:00.000Z'),
+			metadata: {
+				format: 'spreadsheet',
+				frameCount: 47,
+				analyticsPerformed: true,
+			},
+		},
+	})
+
+	await prisma.attachment.create({
+		data: {
+			evidenceId: analysisDocument.id,
+			fileName: 'spawn-blocking-analysis.xlsx',
+			mimeType:
+				'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+			sizeBytes: 245812,
+			storageKey: `seed/evidence/${analysisDocument.id}/spawn-blocking-analysis.xlsx`,
+			storageUrl: `/uploads/evidence/${analysisDocument.id}/spawn-blocking-analysis.xlsx`,
+		},
+	})
+
+	// Notes for completed case
+	const pinnedClosedNote = await prisma.note.create({
+		data: {
+			caseId: completedCase.id,
+			authorId: admin.id,
+			body: 'CASE CLOSED: All four players sanctioned. Pattern matches 3 previous related incidents (Cases R6-0001, R6-0042, R6-0089). Recommend monitoring linked accounts.',
+			isPinned: true,
+			visibility: 'INTERNAL',
+		},
+	})
+
+	await prisma.note.create({
+		data: {
+			caseId: completedCase.id,
+			evidenceId: regressionVideo.id,
+			authorId: reviewer.id,
+			body: 'Technical evidence conclusively demonstrates coordinated behavior. All spawn blocks align with squad communication patterns.',
+			visibility: 'INTERNAL',
+		},
+	})
+
+	await prisma.note.create({
+		data: {
+			caseId: completedCase.id,
+			authorId: admin.id,
+			body: 'Cross-reference: Exploit pattern matches known Coastline geometry issue reported in R6-0089. This case may help identify root cause.',
+			visibility: 'RESTRICTED',
+		},
+	})
+
+	await prisma.attachment.create({
+		data: {
+			noteId: pinnedClosedNote.id,
+			fileName: 'related-cases-summary.pdf',
+			mimeType: 'application/pdf',
+			sizeBytes: 156412,
+			storageKey: `seed/notes/${pinnedClosedNote.id}/related-cases-summary.pdf`,
+			storageUrl: `/uploads/notes/${pinnedClosedNote.id}/related-cases-summary.pdf`,
+		},
+	})
+
+	// Verdict for completed case
+	const permanentVerdictOnDemand = await prisma.verdict.create({
+		data: {
+			caseId: completedCase.id,
+			sanctionTemplateId: permanentBan.id,
+			renderedById: admin.id,
+			rationale:
+				'Clear coordinated exploitation with high technical confidence. Pattern indicates intentional abuse of known map geometry vulnerability. Permanent ban justified by: (1) severity of coordination, (2) previous violation history of primary account, (3) impact on competitive integrity, (4) necessity as deterrent for similar coordinated behavior.',
+			effectiveAt: EFFECTIVE_AT_2,
+			expiresAt: null, // permanent
+		},
+	})
+
+	// Audit logs for completed case
+	await prisma.auditLog.createMany({
+		data: [
+			{
+				actorId: analyst.id,
+				caseId: completedCase.id,
+				action: 'CASE_CREATED',
+				entityType: 'Case',
+				entityId: completedCase.id,
+				after: {
+					status: 'OPEN',
+					priority: 'MEDIUM',
+				},
+				ipAddress: '127.0.0.1',
+				userAgent: 'seed-script',
+			},
+			{
+				actorId: systemIngestUser.id,
+				caseId: completedCase.id,
+				action: 'REPORT_INGESTED',
+				entityType: 'Report',
+				entityId: matchReport.id,
+				after: {
+					source: 'in-game-report',
+					summary: 'Squad prevented spawns using geometry exploit.',
+				},
+				ipAddress: '127.0.0.1',
+				userAgent: 'seed-script',
+			},
+			{
+				actorId: analyst.id,
+				caseId: completedCase.id,
+				action: 'EVIDENCE_UPLOADED',
+				entityType: 'Evidence',
+				entityId: regressionVideo.id,
+				after: {
+					evidenceType: 'VIDEO',
+					status: 'VERIFIED',
+				},
+				ipAddress: '127.0.0.1',
+				userAgent: 'seed-script',
+			},
+			{
+				actorId: reviewer.id,
+				caseId: completedCase.id,
+				action: 'EVIDENCE_UPLOADED',
+				entityType: 'Evidence',
+				entityId: analysisDocument.id,
+				after: {
+					evidenceType: 'DOCUMENT',
+					status: 'VERIFIED',
+				},
+				ipAddress: '127.0.0.1',
+				userAgent: 'seed-script',
+			},
+			{
+				actorId: admin.id,
+				caseId: completedCase.id,
+				action: 'VERDICT_RENDERED',
+				entityType: 'Verdict',
+				entityId: permanentVerdictOnDemand.id,
+				before: {
+					status: 'UNDER_REVIEW',
+				},
+				after: {
+					status: 'CLOSED',
+					sanction: permanentBan.slug,
+					effectiveAt: EFFECTIVE_AT_2.toISOString(),
+				},
+				ipAddress: '127.0.0.1',
+				userAgent: 'seed-script',
+			},
+			{
+				actorId: admin.id,
+				caseId: completedCase.id,
+				action: 'CASE_CLOSED',
+				entityType: 'Case',
+				entityId: completedCase.id,
+				before: {
+					status: 'UNDER_REVIEW',
+				},
+				after: {
+					status: 'CLOSED',
+					closedAt: CLOSED_AT_2.toISOString(),
+					sanctionCount: 4,
+					closedBy: admin.id,
+				},
+				ipAddress: '127.0.0.1',
+				userAgent: 'seed-script',
+			},
+		],
+	})
+
+	console.log(
+		`Created Completed Case: ${completedCase.caseNumber}
+   openedBy=${analyst.id}
+   status=CLOSED
+   reports=${matchReport.id}
+   evidence=${regressionVideo.id}, ${analysisDocument.id}
+   verdict=${permanentVerdictOnDemand.id}
+   subjects=${exploiterSubject1.id}, ${exploiterSubject2.id}`,
+	)
+
 	console.log('🌱 Seed completed successfully.')
 }
 
