@@ -213,8 +213,15 @@ npm run dev
 
 ## Documentation
 
-- `/home/runner/work/Cheater-Case-Intelligence-Platform/Cheater-Case-Intelligence-Platform/docs/architecture.md`
-- `/home/runner/work/Cheater-Case-Intelligence-Platform/Cheater-Case-Intelligence-Platform/docs/data-model.md`
+| File | Description |
+|---|---|
+| [docs/architecture.md](docs/architecture.md) | System architecture and current implementation state |
+| [docs/data-model.md](docs/data-model.md) | Prisma schema, entity reference, and seed data |
+| [docs/adjudication-workflow.md](docs/adjudication-workflow.md) | End-to-end case adjudication workflow |
+| [docs/authentication.md](docs/authentication.md) | JWT auth, RBAC, and usage guide |
+| [docs/copilot-instructions.md](docs/copilot-instructions.md) | AI coding conventions for this repo |
+| [docs/AUTH_QUICK_REFERENCE.md](docs/AUTH_QUICK_REFERENCE.md) | Developer quick reference for auth patterns |
+| [docs/SESSION_CHECKPOINT.md](docs/SESSION_CHECKPOINT.md) | Phase 1–2 session summary and test results |
 
 ## Contributing
 
