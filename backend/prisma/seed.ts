@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client'
+import * as bcrypt from 'bcrypt'
 
 const prisma = new PrismaClient()
 
@@ -92,17 +93,45 @@ async function main() {
 	console.log(`Created Game: ${r6.slug} (${r6.name})`)
 
 	// Users
+	// Passwords are hashed with bcrypt (10 rounds) — same as AuthService.
+	// These are DEV-ONLY credentials; change or remove before any production deployment.
+	const SALT_ROUNDS = 10
+	const [adminHash, analystHash, reviewerHash] = await Promise.all([
+		bcrypt.hash('Admin1234!', SALT_ROUNDS),
+		bcrypt.hash('Analyst1234!', SALT_ROUNDS),
+		bcrypt.hash('Reviewer1234!', SALT_ROUNDS),
+	])
+
+	const admin = await prisma.user.upsert({
+		where: { email: 'admin@ccip.local' },
+		update: {
+			displayName: 'CCIP Admin',
+			role: 'ADMIN',
+			passwordHash: adminHash,
+			isActive: true,
+		},
+		create: {
+			email: 'admin@ccip.local',
+			displayName: 'CCIP Admin',
+			role: 'ADMIN',
+			passwordHash: adminHash,
+			isActive: true,
+		},
+	})
+
 	const analyst = await prisma.user.upsert({
 		where: { email: 'analyst.one@ccip.local' },
 		update: {
 			displayName: 'Analyst One',
 			role: 'ANALYST',
+			passwordHash: analystHash,
 			isActive: true,
 		},
 		create: {
 			email: 'analyst.one@ccip.local',
 			displayName: 'Analyst One',
 			role: 'ANALYST',
+			passwordHash: analystHash,
 		},
 	})
 
@@ -111,12 +140,14 @@ async function main() {
 		update: {
 			displayName: 'Reviewer One',
 			role: 'SENIOR_ANALYST',
+			passwordHash: reviewerHash,
 			isActive: true,
 		},
 		create: {
 			email: 'reviewer.one@ccip.local',
 			displayName: 'Reviewer One',
 			role: 'SENIOR_ANALYST',
+			passwordHash: reviewerHash,
 		},
 	})
 
@@ -137,8 +168,14 @@ async function main() {
 	})
 
 	console.log(
-		`Created Users: ${analyst.email}, ${reviewer.email}, ${systemIngestUser.email}`,
+		`Created Users: ${admin.email}, ${analyst.email}, ${reviewer.email}, ${systemIngestUser.email}`,
 	)
+	console.log('')
+	console.log('  🔑 Dev login credentials:')
+	console.log(`     admin@ccip.local        / Admin1234!     (ADMIN)`)
+	console.log(`     analyst.one@ccip.local  / Analyst1234!   (ANALYST)`)
+	console.log(`     reviewer.one@ccip.local / Reviewer1234!  (SENIOR_ANALYST)`)
+	console.log('')
 
 	// Platforms
 	const ubisoftConnect = await prisma.platform.upsert({

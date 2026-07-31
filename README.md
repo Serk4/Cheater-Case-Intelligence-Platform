@@ -203,6 +203,18 @@ npx prisma db seed
 npm run start:dev
 ```
 
+#### Dev Login Credentials
+
+After seeding, these accounts are available at `http://localhost:5173`:
+
+| Email | Password | Role |
+|---|---|---|
+| `admin@ccip.local` | `Admin1234!` | ADMIN |
+| `analyst.one@ccip.local` | `Analyst1234!` | ANALYST |
+| `reviewer.one@ccip.local` | `Reviewer1234!` | SENIOR_ANALYST |
+
+> ⚠️ These are development-only credentials. Do not use in production.
+
 ### Frontend
 
 ```bash
