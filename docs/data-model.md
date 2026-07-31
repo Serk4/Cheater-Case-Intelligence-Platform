@@ -90,6 +90,7 @@ Most game-specific concepts are stored in configuration tables rather than hardc
 | `Note` | Analyst commentary on a case | Belongs to `Case`; references author `User`; has many `Attachment` |
 | `Verdict` | Final sanction decision for a case | One-to-one with `Case`; references `SanctionTemplate` and rendering `User` |
 | `AuditLog` | Append-only activity history | Optional links to `User` and `Case` |
+| `AiAnalysis` | AI triage result for a case | Belongs to `Case`; stores confidence, summary, suggestion, reviewer feedback |
 
 ---
 

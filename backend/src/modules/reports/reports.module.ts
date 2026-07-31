@@ -2,12 +2,11 @@ import { Module } from '@nestjs/common';
 import { ReportsController } from './reports.controller';
 import { ReportsService } from './reports.service';
 import { PrismaModule } from '../../../prisma/prisma.module';
-
-// TODO: import PrismaModule when available
+import { AiModule } from '../ai/ai.module';
 
 @Module({
   controllers: [ReportsController],
-  imports: [PrismaModule],
+  imports: [PrismaModule, AiModule],
   providers: [ReportsService],
   exports: [ReportsService],
 })

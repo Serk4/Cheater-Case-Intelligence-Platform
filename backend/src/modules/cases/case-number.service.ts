@@ -6,7 +6,6 @@ export class CaseNumberService {
   constructor(private prisma: PrismaService) {}
 
   async generate(gameId: string): Promise<string> {
-    // 1. Get game short code
     const game = await this.prisma.game.findUnique({
       where: { id: gameId },
       select: { shortCode: true },
@@ -18,27 +17,24 @@ export class CaseNumberService {
 
     const short = game.shortCode.toUpperCase();
 
-    // 2. Build date prefix
     const now = new Date();
     const yyyy = now.getFullYear();
     const mm = String(now.getMonth() + 1).padStart(2, '0');
     const dd = String(now.getDate()).padStart(2, '0');
     const datePart = `${yyyy}${mm}${dd}`;
 
-    // 3. Count existing cases for this game + date
-    const count = await this.prisma.case.count({
-      where: {
-        gameId,
-        caseNumber: {
-          startsWith: `CASE-${short}-${datePart}-`,
-        },
-      },
-    });
+    // Atomic increment — safe under concurrent requests.
+    // The UPDATE returns the new counter value; if no row exists we get 0
+    // and the subsequent upsert initialises it at 1.
+    const result = await this.prisma.$queryRaw<{ counter: number }[]>`
+      INSERT INTO case_number_counters ("id", "gameId", "date", "counter", "updatedAt")
+      VALUES (gen_random_uuid(), ${gameId}, ${datePart}, 1, now())
+      ON CONFLICT ("gameId", "date")
+      DO UPDATE SET "counter" = case_number_counters."counter" + 1, "updatedAt" = now()
+      RETURNING "counter"
+    `;
 
-    // 4. Sequence number
-    const seq = String(count + 1).padStart(4, '0');
-
-    // 5. Final case number
+    const seq = String(result[0].counter).padStart(4, '0');
     return `CASE-${short}-${datePart}-${seq}`;
   }
 }

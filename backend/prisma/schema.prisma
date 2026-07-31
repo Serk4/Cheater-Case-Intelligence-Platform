@@ -85,6 +85,7 @@ model Game {
   violationTypes     ViolationType[]
   sanctionTemplates  SanctionTemplate[]
   integrationSources IntegrationSource[]
+  workflowRules      WorkflowRule[]
 
   // Cases
   cases Case[]
@@ -204,6 +205,7 @@ model User {
   id          String    @id @default(cuid())
   email       String    @unique
   displayName String
+  passwordHash String? // null for SSO users
   avatarUrl   String?
   role        UserRole  @default(VIEWER)
   isActive    Boolean   @default(true)
@@ -218,6 +220,11 @@ model User {
   notes         Note[]
   verdicts      Verdict[]
   auditLogs     AuditLog[]
+  previousAssignments CaseAssignment[] @relation("PreviousAssignee")
+  newAssignments CaseAssignment[] @relation("NewAssignee")
+  changedByAssignments CaseAssignment[] @relation("ChangedBy")
+  statusTransitions StatusTransitionLog[]
+  notifications Notification[]
 
   @@index([email])
   @@index([role])
@@ -261,6 +268,10 @@ model Case {
   verdict        Verdict?
   violationTypes CaseViolationType[]
   auditLogs      AuditLog[]
+  caseAssignments CaseAssignment[] @relation("CaseAssignments")
+  statusTransitions StatusTransitionLog[] @relation("StatusTransitions")
+  notifications  Notification[] @relation("CaseNotifications")
+  aiAnalyses     AiAnalysis[]
 
   // INDEXES
   @@index([gameId])
@@ -457,4 +468,152 @@ model AuditLog {
   @@index([action])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ─────────────────────────────────────────
+// WORKFLOW RULES
+// ─────────────────────────────────────────
+
+model WorkflowRule {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  ruleType    String   // "AutoAssign", "StatusValidation", "Escalation"
+  conditions  Json     // Query-like conditions
+  actions     Json     // Side effects to apply
+  gameId      String?
+  enabled     Boolean  @default(true)
+  priority    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  game Game? @relation(fields: [gameId], references: [id], onDelete: SetNull)
+
+  @@index([gameId])
+  @@index([ruleType])
+  @@index([enabled])
+  @@index([priority])
+  @@map("workflow_rules")
+}
+
+// ─────────────────────────────────────────
+// CASE ASSIGNMENT (Audit Trail)
+// ─────────────────────────────────────────
+
+model CaseAssignment {
+  id            String   @id @default(cuid())
+  caseId        String
+  previousUserId String?
+  newUserId      String
+  reason        String   // "auto_assign_rule", "manual", "escalation"
+  changedById   String
+  changedAt     DateTime @default(now())
+
+  case        Case  @relation("CaseAssignments", fields: [caseId], references: [id], onDelete: Cascade)
+  previousUser User? @relation("PreviousAssignee", fields: [previousUserId], references: [id], onDelete: SetNull)
+  newUser     User  @relation("NewAssignee", fields: [newUserId], references: [id])
+  changedBy   User  @relation("ChangedBy", fields: [changedById], references: [id])
+
+  @@index([caseId])
+  @@index([newUserId])
+  @@index([changedAt])
+  @@map("case_assignments")
+}
+
+// ─────────────────────────────────────────
+// STATUS TRANSITION LOG
+// ─────────────────────────────────────────
+
+model StatusTransitionLog {
+  id            String     @id @default(cuid())
+  caseId        String
+  fromStatus    CaseStatus
+  toStatus      CaseStatus
+  reason        String?
+  validationMeta Json?
+  changedById   String
+  changedAt     DateTime   @default(now())
+
+  case      Case @relation("StatusTransitions", fields: [caseId], references: [id], onDelete: Cascade)
+  changedBy User @relation(fields: [changedById], references: [id])
+
+  @@index([caseId])
+  @@index([toStatus])
+  @@index([changedAt])
+  @@map("status_transition_logs")
+}
+
+// ─────────────────────────────────────────
+// CASE NUMBER COUNTER
+// Concurrency-safe daily sequence counter.
+// Uses atomic upsert instead of counting existing cases.
+// ─────────────────────────────────────────
+
+model CaseNumberCounter {
+  id        String   @id @default(cuid())
+  gameId    String
+  date      String   // "YYYYMMDD"
+  counter   Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([gameId, date])
+  @@index([gameId, date])
+  @@map("case_number_counters")
+}
+
+// ─────────────────────────────────────────
+// AI ANALYSIS
+// Persisted output from the AI triage pipeline.
+// One record per analysis run on a case.
+// ─────────────────────────────────────────
+
+model AiAnalysis {
+  id                     String    @id @default(cuid())
+  caseId                 String
+  summary                String    @db.Text
+  confidence             Float     // 0.0 – 1.0
+  suggestedViolationType String?   // slug from ViolationType
+  suggestedPriority      String?   // CasePriority value
+  rawResponse            Json?     // full provider response for debugging
+  createdAt              DateTime  @default(now())
+
+  // Reviewer feedback on this analysis
+  reviewerDecision       String?   // ACCEPTED | MODIFIED | REJECTED
+  reviewerNote           String?
+  reviewedAt             DateTime?
+  reviewedById           String?
+
+  case       Case  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+  @@index([confidence])
+  @@index([createdAt])
+  @@map("ai_analyses")
+}
+
+// ─────────────────────────────────────────
+// NOTIFICATIONS
+// ─────────────────────────────────────────
+
+model Notification {
+  id         String    @id @default(cuid())
+  userId     String
+  type       String    // CASE_ASSIGNED, STATUS_CHANGED, NOTE_ADDED, etc.
+  title      String
+  message    String
+  caseId     String?
+  resourceId String?   // ID of the changed resource (evidence, note, verdict)
+  data       Json?     // Additional context
+  read       Boolean   @default(false)
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  case       Case?     @relation("CaseNotifications", fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([read])
+  @@index([caseId])
+  @@index([createdAt])
+  @@map("notifications")
 }

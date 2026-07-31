@@ -1,12 +1,18 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
 import { ReportIngestionDto } from './dto/report-ingestion.dto';
+import { AiService } from '../ai/ai.service';
 
 @Injectable()
 export class ReportsService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(ReportsService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    private aiService: AiService,
+  ) {}
 
   findAll() {
     return this.prisma.report.findMany({
@@ -80,7 +86,7 @@ export class ReportsService {
       });
     }
 
-    return this.prisma.report.create({
+    const report = await this.prisma.report.create({
       data: {
         caseId: payload.caseId,
         reportedById: payload.reportedById,
@@ -95,5 +101,14 @@ export class ReportsService {
         integrationSource: true,
       },
     });
+
+    // Trigger AI triage asynchronously — do not block the response
+    if (this.aiService.isEnabled) {
+      this.aiService.analyzeCase(payload.caseId).catch((err) =>
+        this.logger.warn(`AI triage failed for case ${payload.caseId}: ${err?.message}`),
+      );
+    }
+
+    return report;
   }
 }

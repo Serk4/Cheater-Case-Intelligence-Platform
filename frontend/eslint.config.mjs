@@ -1,4 +1,4 @@
-import js from '@eslint/js'
+﻿import js from '@eslint/js'
 import globals from 'globals'
 import tseslint from 'typescript-eslint'
 import pluginReact from 'eslint-plugin-react'
@@ -10,7 +10,11 @@ export default defineConfig([
 		plugins: { js },
 		extends: ['js/recommended'],
 		languageOptions: { globals: globals.browser },
+		settings: {
+			react: { version: 'detect' },
+		},
 		rules: {
+			'react/react-in-jsx-scope': 'off',
 			'react/no-inline-styles': 'off',
 			'jsx-a11y/no-static-element-interactions': 'off',
 			'jsx-a11y/label-has-associated-control': 'off',
@@ -18,5 +22,14 @@ export default defineConfig([
 		},
 	},
 	tseslint.configs.recommended,
-	pluginReact.configs.flat.recommended,
+	{
+		...pluginReact.configs.flat.recommended,
+		settings: { react: { version: 'detect' } },
+		rules: {
+			...pluginReact.configs.flat.recommended.rules,
+			'react/react-in-jsx-scope': 'off',
+			'react/prop-types': 'off',
+			'@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+		},
+	},
 ])

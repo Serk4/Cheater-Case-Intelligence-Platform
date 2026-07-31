@@ -59,6 +59,7 @@ The initial target use case is **Tom Clancy's The Division 2**, but the platform
 ## TODO
 
 ### Backend Infrastructure
+
 - [x] Configure PostgreSQL connection string in `backend/.env`
 - [ ] Configure Redis connection in `backend/.env` and wire a Redis module into NestJS
 - [x] Run `npx prisma migrate dev` to apply the initial schema
@@ -67,6 +68,7 @@ The initial target use case is **Tom Clancy's The Division 2**, but the platform
 - [ ] Restore backend lint/test tooling so `npm run lint` and `npm test` work locally
 
 ### Backend CRUD Modules
+
 - [x] Game CRUD
 - [x] Platform CRUD
 - [x] ViolationType CRUD
@@ -84,6 +86,7 @@ The initial target use case is **Tom Clancy's The Division 2**, but the platform
 - [x] AuditLog CRUD
 
 ### Backend Logic
+
 - [x] Implement report ingestion logic (`backend/src/modules/reports/`)
 - [x] Implement case detail and case search endpoints (`backend/src/modules/cases/`)
 - [x] Implement note creation and soft-delete flows (`backend/src/modules/cases/`)
@@ -92,12 +95,14 @@ The initial target use case is **Tom Clancy's The Division 2**, but the platform
 - [ ] Add formal case workflow rules for status transitions, assignment, escalation, and closure
 - [ ] Add audit logging middleware/hooks for case activity
 - [x] Add global validation pipes
-- [ ] Add global exception filters
-- [ ] Add Swagger/OpenAPI documentation
-- [ ] Implement user authentication (JWT/OAuth)
-- [ ] Implement role-based access control (RBAC)
+- [x] Add global exception filters
+- [x] Add Swagger/OpenAPI documentation
+- [x] Implement user authentication (JWT/OAuth)
+- [x] Implement role-based access control (RBAC)
 - [ ] Replace AI service stubs with a real provider-backed analysis pipeline
+
 #### Case Number Generator (Future Upgrade)
+
 - [ ] Replace current `CASE-${short}-${date}-${seq}` generator (count-based) with a
       concurrency-safe implementation.
 - [ ] Add new Prisma model `CaseNumberCounter` with `gameId`, `date`, and `counter`
@@ -108,8 +113,8 @@ The initial target use case is **Tom Clancy's The Division 2**, but the platform
 - [ ] Add unique constraint on `caseNumber` in `Case` model (if not already present).
 - [ ] Add unit tests for sequence rollover, daily reset, and multi-game isolation.
 
-
 ### Frontend
+
 - [x] Create the application shell and route navigation (`frontend/src/App.tsx`)
 - [x] Build the Cases list page (`frontend/src/pages/Cases.tsx`)
 - [x] Integrate basic case list/detail fetching with the backend API
@@ -120,6 +125,7 @@ The initial target use case is **Tom Clancy's The Division 2**, but the platform
 - [ ] Add authentication flow and route guards
 
 ### Testing & Quality
+
 - [ ] Restore frontend lint tooling so `npm run lint` works locally
 - [ ] Add backend unit tests
 - [ ] Add backend API integration tests
@@ -129,25 +135,60 @@ The initial target use case is **Tom Clancy's The Division 2**, but the platform
 ## Delivery Plan
 
 ### Phase 1 — Stabilize the foundation
+
 1. Restore lint/test dependencies and make local validation reliable
 2. Finish missing Game and Attachment CRUD coverage
 3. Add Swagger and exception handling so the current API surface is easier to use safely
 
 ### Phase 2 — Complete the reviewer workflow backend
+
 1. Persist uploads correctly
 2. Add workflow rules for case assignment and status transitions
 3. Add audit logging around reviewer actions
 4. Add authentication and RBAC
 
 ### Phase 3 — Complete the reviewer workflow frontend
-1. Finish Dashboard, Case View, and Report Intake
-2. Replace ad hoc `fetch` calls with a shared API layer
-3. Add auth-aware navigation and protected routes
 
-### Phase 4 — Add intelligence and hardening
-1. Integrate a real AI provider
-2. Add automated tests across backend, frontend, and end-to-end flows
-3. Expand storage/queue integrations for production readiness
+1. ✅ Finish Dashboard with reviewer metrics queue and case summary counts
+2. ✅ Replace ad hoc `fetch` calls with a shared API layer (React Query + auth-aware client)
+3. ✅ Add auth-aware navigation and protected routes (Login/signup UI, JWT storage, route guards)
+4. ✅ Finish Case View page with subjects, AI panel, notes, verdicts, and evidence/attachment previews
+5. ✅ Build Report Intake form and submit flow (wired to POST /reports/ingest, with Zod validation)
+
+### Phase 4 — AI Triage (Toggleable Feature)
+
+1. ✅ AI_ENABLED env var + `/config` endpoint — frontend reads flag to show/hide AI features
+2. ✅ AiService with real OpenAI integration (provider abstraction, graceful fallback when disabled)
+3. ✅ AI triage auto-triggered on report ingestion (async, non-blocking)
+4. ✅ AI summary card + confidence badge in Case View
+5. ✅ AI-scored cases surfaced at top of reviewer dashboard queue
+6. ✅ Reviewer accept/modify/reject AI suggestions (audit-persisted in `AiAnalysis`)
+7. ✅ `AiAnalysis` Prisma model added + migration applied
+
+### Phase 5 — Quality & Hardening
+
+1. Add backend unit tests for core services (cases, reports, AI triage)
+2. Add backend API integration tests
+3. Add frontend component/page tests
+4. End-to-end test for the full report → AI triage → reviewer decision flow
+5. Restore lint tooling (`npm run lint`) for both backend and frontend
+6. Fix case number generator to be concurrency-safe (replace count-based with atomic upsert)
+
+### Optional Phase — Production & Scale (Deferred)
+
+These items are deferred. Implement only if deploying to production:
+
+- Redis queue integration for async job processing
+- Rate limiting and DDoS protection
+- Data encryption at rest
+- Compliance and security auditing
+- Multi-region deployment strategy
+- Observability stack (Prometheus, Grafana, ELK)
+- Incident response automation
+- Load testing and capacity planning
+- ML-powered case prioritization (beyond basic AI triage)
+- Cross-game pattern detection at scale
+- Real-time anomaly detection
 
 ## Getting Started
 

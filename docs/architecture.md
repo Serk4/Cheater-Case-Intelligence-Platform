@@ -14,31 +14,37 @@ This document reflects the code that exists today, not the long-term target arch
 
 ```text
 [ React + Vite frontend ]
-  - App shell with left-nav routing
-  - Dashboard page shell
-  - Cases list page
-  - Case detail page
-  - Report intake page shell
+  - App shell with left-nav routing, login/signup, protected routes
+  - Dashboard page with reviewer queue, metrics, and AI confidence scores
+  - Cases list page (React Query)
+  - Case detail page with subjects, evidence, reports, notes, verdict, AI panel
+  - Report Intake form (Zod validation, wired to ingest endpoint)
+  - Shared API client (auth-aware, JWT bearer tokens)
+  - AuthContext (JWT storage, role helpers)
             |
             v
 [ NestJS API ]
-  - CRUD modules for most schema models
+  - CRUD modules for all schema models
   - Case aggregate/detail endpoints
-  - Report ingestion endpoint
+  - Report ingestion endpoint (triggers AI triage if enabled)
   - Note creation + soft delete flow
   - Evidence upload metadata flow
+  - JWT authentication + RBAC (4-tier role system)
+  - Audit logging middleware
+  - Workflow rules (status transitions, assignment)
+  - AI triage service (OpenAI integration, toggleable via AI_ENABLED)
+  - Config endpoint (/config) exposing feature flags
             |
             v
 [ PostgreSQL via Prisma ]
   - Core case-management schema
+  - AiAnalysis model for persisting AI triage results
   - Seeded single-case example dataset
 
-Planned but not wired yet:
+Not yet implemented:
   - Redis
-  - Auth/RBAC
-  - Swagger
-  - Production AI providers
   - Durable object storage
+  - Production AI providers beyond OpenAI stub
 ```
 
 ---
@@ -201,12 +207,10 @@ This gives both the backend and frontend a realistic relational dataset without 
 
 The next meaningful architecture increments are:
 
-1. add the missing `GamesModule` and attachment-specific API surface
-2. replace metadata-only evidence handling with real storage
-3. add authentication, RBAC, and audit hooks
-4. add exception handling and API documentation
-5. introduce a shared frontend API layer and finish the incomplete pages
-6. connect the AI and Redis pieces once the reviewer workflow is stable
+1. Add automated tests (backend unit + integration, frontend component, E2E)
+2. Restore lint tooling for both backend and frontend
+3. Fix the concurrency-safe case number generator
+4. Replace metadata-only evidence handling with real durable storage
 
 ---
 

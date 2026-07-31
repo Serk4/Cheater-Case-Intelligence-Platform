@@ -32,7 +32,7 @@ interface Props {
 }
 
 export default function SubjectSelector({
-	subjectId,
+	subjectId: _subjectId,
 	setSubjectId,
 	platformId,
 	platforms,
